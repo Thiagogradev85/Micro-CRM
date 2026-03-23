@@ -284,7 +284,7 @@ function ProductRow({ prod, catId, onEdit, onDelete, onStockChange, onUnlink }) 
   const [lightbox, setLightbox] = useState(null)
   return (
     <div className="border border-zinc-800 rounded-lg p-3 space-y-2">
-      {lightbox && <ImageLightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} />
+      {lightbox && <ImageLightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} />}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2">
           {prod.imagem && (
