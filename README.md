@@ -391,6 +391,55 @@ O projeto já inclui configuração de debug em `.vscode/launch.json`.
 
 ---
 
+## Versionamento — Como Criar uma Nova Versão
+
+O projeto usa [Semantic Versioning](https://semver.org/lang/pt-BR/) com Git tags e GitHub Releases.
+
+### Convenção de versão
+
+| Versão | Quando usar | Exemplo |
+|--------|-------------|---------|
+| `vX.0.0` | Mudança que quebra o sistema (novo banco, reescrita) | `v2.0.0` |
+| `v1.X.0` | Nova funcionalidade grande (novo módulo, nova página) | `v1.3.0` |
+| `v1.1.X` | Correção de bug ou ajuste pequeno | `v1.1.2` |
+
+### Passo a passo
+
+**1. Faça o commit das mudanças normalmente:**
+```bash
+git add .
+git commit -m "feat: descrição do que foi feito"
+git push
+```
+
+**2. Crie a tag apontando para o commit atual:**
+```bash
+git tag -a v1.3.0 -m "Descrição curta da versão"
+git push origin v1.3.0
+```
+
+**3. Crie o Release no GitHub via CLI:**
+```bash
+gh release create v1.3.0 --title "v1.3.0 — Título da versão" --notes "## O que mudou
+
+- Item 1
+- Item 2"
+```
+
+> O `gh` CLI precisa estar instalado (`winget install --id GitHub.cli`) e autenticado (`gh auth login`).
+
+### Versões existentes
+
+| Tag | Descrição |
+|-----|-----------|
+| `v1.0.0` | Sistema base CRM (clientes, catálogos, relatório diário) |
+| `v1.1.0` | Lógica de contato diário e reset automático de status |
+| `v1.2.0` | Refatoração de módulos e campos de dimensões nos produtos |
+
+Releases completos em: https://github.com/Thiagogradev85/Leads-React-JS/releases
+
+---
+
 ## Testes (a implementar)
 
 Estrutura planejada em `server/src/tests/`:
