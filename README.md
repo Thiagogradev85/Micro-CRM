@@ -57,11 +57,15 @@ leads_crm/
 │   │   │   │   │                       #   estados brasileiros (nome completo e sigla),
 │   │   │   │   │                       #   validação de WhatsApp (DDD + 9 dígitos)
 │   │   │   │   └── index.js            # export { importExcel }
-│   │   │   └── file-export/
-│   │   │       ├── exportClients.js    # Export formatado: .xlsx (ExcelJS com zebra/filtros)
-│   │   │       │                       #   e PDF paisagem com tema escuro (PDFKit)
-│   │   │       ├── generateReportPdf.js# PDF do relatório diário com cards e listas coloridas
-│   │   │       └── index.js            # export { toExcel, toPDF, generateReportPdf }
+│   │   │   ├── file-export/
+│   │   │   │   ├── exportClients.js    # Export formatado: .xlsx (ExcelJS com zebra/filtros)
+│   │   │   │   │                       #   e PDF paisagem com tema escuro (PDFKit)
+│   │   │   │   ├── generateReportPdf.js# PDF do relatório diário com cards e listas coloridas
+│   │   │   │   └── index.js            # export { toExcel, toPDF, generateReportPdf }
+│   │   │   └── whatsapp/
+│   │   │       ├── WhatsAppService.js  # Classe singleton: autenticação QR, sendText, sendBulk
+│   │   │       │                       #   reconexão automática, callbacks onProgress/onSent
+│   │   │       └── index.js            # export { whatsAppService }
 │   │   └── index.js                   # Express: CORS, rotas, /health, error handler global,
 │   │                                  #   agendador de reset de status à meia-noite
 │   ├── migrations/
@@ -202,6 +206,7 @@ A lógica de negócio foi extraída da pasta `services/` e reorganizada em `modu
 | `ai-import`     | Importação de catálogos via PDF usando IA (Anthropic Claude)         |
 | `file-import`   | Importação de clientes via Excel (.xlsx)                             |
 | `file-export`   | Exportação de clientes (Excel/PDF) e geração de relatório diário PDF |
+| `whatsapp`      | CRM Automático — envio em massa via WhatsApp Web (Baileys)           |
 
 Cada módulo expõe um `index.js` com exports nomeados. Os controllers importam apenas pelo caminho do módulo, sem depender da estrutura interna.
 
@@ -214,6 +219,140 @@ import { importCatalogPdf } from '../modules/ai-import/index.js'
 ```
 
 A pasta `services/` foi removida após a migração.
+
+---
+
+## CRM Automático — WhatsApp via Baileys
+
+O módulo `whatsapp` permite enviar mensagens em massa para clientes da lista via **WhatsApp Web**, sem depender de APIs pagas. Utiliza a biblioteca [@whiskeysockets/baileys](https://github.com/WhiskeySockets/Baileys), que simula o WhatsApp Web via WebSocket.
+
+### Arquivos
+
+```
+server/src/
+├── modules/whatsapp/
+│   ├── WhatsAppService.js   # Classe principal (singleton)
+│   └── index.js             # export { whatsAppService }
+├── controllers/
+│   └── WhatsAppController.js
+└── routes/
+    └── whatsapp.js
+```
+
+### Classe `WhatsAppService`
+
+Singleton exportado como `whatsAppService`. Gerencia o ciclo de vida completo da conexão.
+
+#### Estados possíveis (`this.status`)
+
+| Estado         | Descrição                                              |
+|----------------|--------------------------------------------------------|
+| `disconnected` | Não conectado. Estado inicial e após logout/erro fatal |
+| `connecting`   | Aguardando leitura do QR code                          |
+| `connected`    | Autenticado e pronto para enviar mensagens             |
+
+#### Autenticação via QR Code
+
+```
+connect() → useMultiFileAuthState(AUTH_DIR) → makeWASocket() → emite QR → frontend exibe imagem
+```
+
+1. `connect()` lê (ou cria) as credenciais salvas em `.whatsapp-session/` na raiz do projeto
+2. Se não há sessão salva, o Baileys emite o evento `qr` com a string bruta do QR code
+3. O serviço converte para base64 via `qrcode.toDataURL()` e emite o evento interno `'qr'`
+4. O frontend exibe a imagem; o usuário escaneia com o celular
+5. Após autenticação, `connection === 'open'` dispara → `status = 'connected'`, número do telefone salvo em `this.phone`
+6. As credenciais são persistidas em disco automaticamente via `saveCreds` no evento `creds.update`
+
+#### Sessão persistente
+
+A sessão fica salva em `.whatsapp-session/` (gitignored). Na próxima inicialização do servidor, o Baileys reconecta automaticamente sem pedir novo QR code, desde que o dispositivo ainda esteja ativo no WhatsApp.
+
+#### Reconexão automática
+
+Ao detectar `connection === 'close'`:
+- Lê o código de erro via `@hapi/boom`
+- Se **não** for `DisconnectReason.loggedOut` (código 401), aguarda 3s e chama `connect()` novamente
+- Se for logout (usuário desconectou pelo celular), **não** reconecta — exige novo QR
+
+#### Envio de mensagem individual
+
+```js
+sendText(number, text)
+// number: string com DDD + número (ex: "67999990000")
+// Converte para JID: "5567999990000@s.whatsapp.net"
+```
+
+#### Envio em massa — `sendBulk`
+
+```js
+whatsAppService.sendBulk({ clients, message, delayMs, onProgress, onSent })
+```
+
+| Parâmetro    | Tipo       | Descrição                                                     |
+|--------------|------------|---------------------------------------------------------------|
+| `clients`    | `Client[]` | Lista de clientes (devem ter campo `whatsapp`)                |
+| `message`    | `string`   | Texto com variáveis de template (ver abaixo)                  |
+| `delayMs`    | `number`   | Delay em ms entre cada envio (mínimo 3000ms)                  |
+| `onProgress` | `function` | Callback chamado após cada cliente: `{ current, total, results }` |
+| `onSent`     | `function` | Callback assíncrono chamado **somente em envios bem-sucedidos** → usado para marcar cliente como Contatado |
+
+#### Variáveis de template
+
+A mensagem suporta substituição automática de variáveis:
+
+| Variável      | Substituído por          |
+|---------------|--------------------------|
+| `{{nome}}`    | `client.nome`            |
+| `{{cidade}}`  | `client.cidade`          |
+| `{{uf}}`      | `client.uf`              |
+
+Exemplo:
+```
+Olá {{nome}}, temos novidades para lojistas de {{cidade}}/{{uf}}!
+```
+
+### Fluxo completo de envio
+
+```
+[Frontend] Preenche filtros + mensagem + delay
+     ↓
+POST /whatsapp/preview    → lista clientes que receberão (filtro: status_id, ufs, ativo=true, tem whatsapp)
+     ↓
+[Frontend] Exibe prévia com nome, cidade, número
+     ↓
+POST /whatsapp/send-bulk  → resposta imediata "Iniciando envio para N clientes..."
+     ↓
+[Backend] sendBulk() roda em background (sem await na resposta HTTP)
+     ↓  para cada cliente:
+     │   ├── substitui variáveis no texto
+     │   ├── envia via Baileys (sendMessage)
+     │   ├── chama onSent(client) → ClientModel.markContacted(id)
+     │   │     ├── UPDATE clients SET status_id = <Contatado>, ultimo_contato = NOW()
+     │   │     └── INSERT daily_report_events (contacted) ON CONFLICT DO NOTHING
+     │   └── aguarda delayMs antes do próximo
+     ↓
+Retorna { sent, failed, errors[] }
+```
+
+### Marcação automática como Contatado
+
+Após cada mensagem enviada com sucesso, o sistema chama `ClientModel.markContacted(id)`:
+
+- Busca o `id` do status **Contatado** na tabela `status`
+- Atualiza `status_id` e `ultimo_contato = NOW()` no cliente
+- Insere evento `contacted` em `daily_report_events` (idempotente via `ON CONFLICT DO NOTHING`)
+- Erros nessa etapa são logados mas **não interrompem** o envio dos próximos clientes
+
+### Boas práticas anti-bloqueio
+
+| Prática                        | Motivo                                                      |
+|-------------------------------|--------------------------------------------------------------|
+| Delay mínimo de 3s (recomendado 10–30s) | Evita detecção de comportamento automatizado       |
+| Mensagens personalizadas com `{{nome}}` | Evita mensagens idênticas em massa              |
+| Limitar a ~50–80 envios/dia    | Reduz risco de denúncias e bloqueio do número               |
+| Usar número com histórico real | Números novos têm tolerância menor                          |
+| Não usar links encurtados      | Associados a spam pelo algoritmo do WhatsApp                |
 
 ---
 
@@ -305,6 +444,15 @@ GET /daily-report/summary?date=YYYY-MM-DD
 GET /daily-report/details?date=YYYY-MM-DD
 GET /daily-report/dates
 GET /daily-report/pdf?date=YYYY-MM-DD       → download PDF
+```
+
+### WhatsApp / CRM Automático
+```
+GET  /whatsapp/status                       → { status, phone, qrCode (base64) }
+POST /whatsapp/connect                      → inicia conexão e geração do QR code
+POST /whatsapp/disconnect                   → logout e limpeza da sessão
+GET  /whatsapp/preview?status_id=&ufs=      → lista clientes que receberão a mensagem
+POST /whatsapp/send-bulk                    → { status_id, ufs, message, delay_ms }
 ```
 
 ---
