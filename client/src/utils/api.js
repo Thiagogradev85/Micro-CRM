@@ -125,6 +125,13 @@ export const api = {
   unlinkProductFromCatalog:(catId, prodId)    => request('DELETE', `/catalogs/${catId}/products/${prodId}/unlink`),
   downloadCatalogPdf:      (catId)            => { window.open(`${BASE}/catalogs/${catId}/pdf`, '_blank') },
 
+  // WhatsApp / CRM Automático
+  whatsappStatus:   ()                => request('GET',  '/whatsapp/status'),
+  whatsappConnect:  ()                => request('POST', '/whatsapp/connect'),
+  whatsappDisconnect: ()              => request('POST', '/whatsapp/disconnect'),
+  whatsappPreview:  (params)          => request('GET',  '/whatsapp/preview?' + new URLSearchParams(params).toString()),
+  whatsappSendBulk: (data)            => request('POST', '/whatsapp/send-bulk', data),
+
   // Daily Report
   getReportSummary: (date) => request('GET', `/daily-report/summary?date=${date}`),
   getReportDetails: (date) => request('GET', `/daily-report/details?date=${date}`),

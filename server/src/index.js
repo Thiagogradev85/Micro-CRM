@@ -8,6 +8,7 @@ import clientRoutes      from './routes/clients.js'
 import catalogRoutes     from './routes/catalogs.js'
 import productRoutes     from './routes/products.js'
 import dailyReportRoutes from './routes/dailyReport.js'
+import whatsappRoutes    from './routes/whatsapp.js'
 import { AppError }      from './utils/AppError.js'
 import db                from './db/db.js'
 
@@ -59,6 +60,7 @@ app.use('/clients',      clientRoutes)
 app.use('/catalogs',     catalogRoutes)
 app.use('/products',     productRoutes)
 app.use('/daily-report', dailyReportRoutes)
+app.use('/whatsapp',     whatsappRoutes)
 
 // ── Health check ───────────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date() }))
