@@ -34,6 +34,9 @@ export const ClientController = {
 
   async create(req, res, next) {
     try {
+      const { nome, uf } = req.body
+      if (!nome?.trim()) throw new AppError('Nome é obrigatório.', 422)
+      if (!uf?.trim())   throw new AppError('UF é obrigatória.', 422)
       const data = await ClientModel.create(req.body)
       res.status(201).json(data)
     } catch (err) {
@@ -44,6 +47,9 @@ export const ClientController = {
 
   async update(req, res, next) {
     try {
+      const { nome, uf } = req.body
+      if (nome !== undefined && !nome?.trim()) throw new AppError('Nome é obrigatório.', 422)
+      if (uf   !== undefined && !uf?.trim())   throw new AppError('UF é obrigatória.', 422)
       const data = await ClientModel.update(req.params.id, req.body)
       if (!data) throw new AppError('Cliente não encontrado', 404)
       res.json(data)
