@@ -43,6 +43,14 @@ export function ClientDetailPage() {
   useEffect(() => { load() }, [load])
 
   async function handleSave() {
+    if (!form.nome?.trim()) {
+      showModal({ type: 'error', title: 'Campo obrigatório', message: 'Nome é obrigatório.' })
+      return
+    }
+    if (!form.uf) {
+      showModal({ type: 'error', title: 'Campo obrigatório', message: 'UF é obrigatória.' })
+      return
+    }
     setLoading(true)
     try {
       await api.updateClient(id, {
@@ -207,7 +215,7 @@ export function ClientDetailPage() {
                 {inp('cep', '00000-000')}
               </div>
               <div>
-                <label className="label">UF</label>
+                <label className="label">UF *</label>
                 <select className="select" value={form.uf || ''} onChange={e => set('uf', e.target.value)}>
                   <option value="">Selecione</option>
                   {UFS.map(u => <option key={u}>{u}</option>)}
