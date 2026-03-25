@@ -5,13 +5,13 @@ import {
 import { useState } from 'react'
 
 const links = [
-  { to: '/clients',      icon: Users,      label: 'Clientes'        },
-  { to: '/products',     icon: Package,    label: 'Produtos'        },
-  { to: '/catalogs',     icon: BookOpen,   label: 'Catálogos'       },
-  { to: '/sellers',      icon: UserCheck,  label: 'Vendedores'      },
-  { to: '/daily-report', icon: BarChart2,     label: 'Relatório Diário' },
-  { to: '/whatsapp',     icon: MessageCircle, label: 'WhatsApp'          },
+  { to: '/clients',      icon: Users,         label: 'Clientes'         },
+  { to: '/products',     icon: Package,       label: 'Produtos'         },
+  { to: '/catalogs',     icon: BookOpen,      label: 'Catálogos'        },
+  { to: '/sellers',      icon: UserCheck,     label: 'Vendedores'       },
+  { to: '/whatsapp',     icon: MessageCircle, label: 'WhatsApp'         },
   { to: '/email',        icon: Mail,          label: 'E-mail em Massa'  },
+  { to: '/daily-report', icon: BarChart2,     label: 'Relatório Diário' },
 ]
 
 export function Sidebar() {
