@@ -16,17 +16,24 @@ export function ClientForm({ initial = {}, onSave, onCancel }) {
   const [catalogs, setCatalogs] = useState([])
   const [sellers, setSellers]   = useState([])
   const [loading, setLoading]   = useState(false)
+  const [errors, setErrors]     = useState({})
 
   useEffect(() => {
     Promise.all([api.listStatuses(), api.listCatalogs(), api.listSellers()])
       .then(([s, c, v]) => { setStatuses(s); setCatalogs(c); setSellers(v) })
   }, [])
 
-  const set = (field, val) => setForm(f => ({ ...f, [field]: val }))
+  const set = (field, val) => {
+    setForm(f => ({ ...f, [field]: val }))
+    if (errors[field]) setErrors(e => ({ ...e, [field]: null }))
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.nome) return
+    const errs = {}
+    if (!form.nome?.trim()) errs.nome = 'Nome é obrigatório'
+    if (!form.uf) errs.uf = 'UF é obrigatória'
+    if (Object.keys(errs).length) { setErrors(errs); return }
     setLoading(true)
     try {
       await onSave({
@@ -62,6 +69,7 @@ export function ClientForm({ initial = {}, onSave, onCancel }) {
         <div className="sm:col-span-2">
           <label className="label">Nome *</label>
           {inp('nome', 'Nome da loja / empresa')}
+          {errors.nome && <p className="text-xs text-red-400 mt-1">{errors.nome}</p>}
         </div>
         <div className="sm:col-span-2">
           <label className="label">Responsável</label>
@@ -76,11 +84,12 @@ export function ClientForm({ initial = {}, onSave, onCancel }) {
           {inp('cep', '00000-000')}
         </div>
         <div>
-          <label className="label">UF</label>
+          <label className="label">UF *</label>
           <select className="select" value={form.uf} onChange={e => set('uf', e.target.value)}>
             <option value="">Selecione</option>
             {UFS.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
+          {errors.uf && <p className="text-xs text-red-400 mt-1">{errors.uf}</p>}
         </div>
         <div>
           <label className="label">Cidade</label>

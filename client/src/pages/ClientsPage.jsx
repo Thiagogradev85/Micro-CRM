@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Plus, Search, Upload, Phone, Star, Eye, UserX, RefreshCw,
   List, MapPin, Loader2, Instagram, X, Trash2, Download,
-  ArrowUpDown, ArrowUp, ArrowDown
+  ArrowUpDown, ArrowUp, ArrowDown, Sparkles
 } from 'lucide-react'
 
 const FILTERS_KEY = 'clients_filters'
@@ -312,36 +312,63 @@ export function ClientsPage() {
 
   // ── Render modo "Por Estado" ────────────────────────────────────────────────
   function renderStateView() {
-    const grouped = groupByUF(clients)
+    const newClients  = clients.filter(c => isCreatedToday(c.created_at))
+    const restClients = clients.filter(c => !isCreatedToday(c.created_at))
+
+    const grouped   = groupByUF(restClients)
     const sortedUFs = Object.keys(grouped).sort((a, b) => a.localeCompare(b))
 
-    if (sortedUFs.length === 0) return <EmptyState icon={Search} message="Nenhum cliente encontrado" />
+    if (newClients.length === 0 && sortedUFs.length === 0)
+      return <EmptyState icon={Search} message="Nenhum cliente encontrado" />
+
+    function UFSection({ uf, rows }) {
+      return (
+        <div className="table-wrapper">
+          <div className="flex items-center gap-2 px-4 py-2 bg-zinc-800 border-b border-zinc-700">
+            <MapPin size={14} className="text-sky-400" />
+            <span className="font-semibold text-zinc-100 text-sm">{uf}</span>
+            <span className="text-zinc-500 text-xs">
+              {rows.length} cliente{rows.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <table className="table">
+            {tableHead}
+            <tbody>
+              {sortByName(rows).map(c => (
+                <ClientRow key={c.id} c={c} alreadyContacted={contactedToday.has(c.id)} {...rowProps} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
 
     return (
       <div className="space-y-6">
-        {sortedUFs.map(uf => (
-          <div key={uf} className="table-wrapper">
-            <div className="flex items-center gap-2 px-4 py-2 bg-zinc-800 border-b border-zinc-700">
-              <MapPin size={14} className="text-sky-400" />
-              <span className="font-semibold text-zinc-100 text-sm">{uf}</span>
-              <span className="text-zinc-500 text-xs">
-                {grouped[uf].length} cliente{grouped[uf].length !== 1 ? 's' : ''}
+        {/* Seção Novos — clientes criados hoje */}
+        {newClients.length > 0 && (
+          <div className="table-wrapper">
+            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-950 border-b border-emerald-800">
+              <Sparkles size={14} className="text-emerald-400" />
+              <span className="font-semibold text-emerald-300 text-sm">Novos</span>
+              <span className="text-emerald-600 text-xs">
+                {newClients.length} cliente{newClients.length !== 1 ? 's' : ''} cadastrado{newClients.length !== 1 ? 's' : ''} hoje
               </span>
             </div>
             <table className="table">
               {tableHead}
               <tbody>
-                {sortByName(grouped[uf]).map(c => (
-                  <ClientRow
-                    key={c.id}
-                    c={c}
-                    alreadyContacted={contactedToday.has(c.id)}
-                    {...rowProps}
-                  />
+                {sortByName(newClients).map(c => (
+                  <ClientRow key={c.id} c={c} alreadyContacted={contactedToday.has(c.id)} {...rowProps} />
                 ))}
               </tbody>
             </table>
           </div>
+        )}
+
+        {/* Seções por UF */}
+        {sortedUFs.map(uf => (
+          <UFSection key={uf} uf={uf} rows={grouped[uf]} />
         ))}
       </div>
     )
