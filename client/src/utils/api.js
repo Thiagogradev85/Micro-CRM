@@ -83,10 +83,20 @@ export const api = {
     const qs = new URLSearchParams({ ...params, format }).toString()
     window.open(`${BASE}/clients/export?${qs}`, '_blank')
   },
-  importClients:  (file)   => {
+  importClients: (file) => {
     const fd = new FormData()
     fd.append('file', file)
-    return request('POST', '/clients/import', fd)
+    // Vite proxy strips multipart body — call backend directly in dev
+    const url = import.meta.env.DEV
+      ? 'http://localhost:8000/clients/import'
+      : `${BASE}/clients/import`
+    return fetch(url, { method: 'POST', body: fd }).then(async res => {
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null)
+        throw new Error(friendlyError(res.status, payload))
+      }
+      return res.json()
+    })
   },
 
   // Observações
