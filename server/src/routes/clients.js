@@ -1,12 +1,10 @@
 import { Router } from 'express'
-import multer from 'multer'
 import { ClientController } from '../controllers/ClientController.js'
 
-const upload = multer({ storage: multer.memoryStorage() })
 const router = Router()
 
 // Importação e exportação — devem vir ANTES das rotas com /:id
-router.post('/import', upload.single('file'), ClientController.importExcel)
+router.post('/import', ClientController.importExcel)
 router.get('/export',                         ClientController.exportClients)
 
 router.get('/',                               ClientController.list)

@@ -1,7 +1,29 @@
+import busboy from 'busboy'
 import { ClientModel } from '../models/ClientModel.js'
 import { importExcel } from '../modules/file-import/index.js'
 import { toExcel, toPDF } from '../modules/file-export/index.js'
 import { AppError } from '../utils/AppError.js'
+
+function readFileFromRequest(req) {
+  return new Promise((resolve, reject) => {
+    const bb = busboy({ headers: req.headers })
+    const chunks = []
+    let gotFile = false
+    bb.on('file', (_field, fileStream) => {
+      gotFile = true
+      fileStream.on('data', chunk => chunks.push(chunk))
+      fileStream.on('end', () => {})
+    })
+    bb.on('close', () => {
+      if (!gotFile || chunks.length === 0) return reject(new AppError('Arquivo não enviado', 400))
+      resolve(Buffer.concat(chunks))
+    })
+    bb.on('error', err => reject(new AppError(err.message, 422)))
+    req.on('data', chunk => bb.write(chunk))
+    req.on('end', () => bb.end())
+    req.on('error', reject)
+  })
+}
 
 export const ClientController = {
   async list(req, res, next) {
@@ -147,8 +169,8 @@ export const ClientController = {
   // Importação via Excel
   async importExcel(req, res, next) {
     try {
-      if (!req.file) throw new AppError('Arquivo não enviado', 400)
-      const records = await importExcel(req.file.buffer)
+      const fileBuffer = await readFileFromRequest(req)
+      const records = await importExcel(fileBuffer)
       const result = await ClientModel.bulkUpsert(records)
       res.json(result)
     } catch (err) {
