@@ -178,4 +178,16 @@ export const ClientController = {
       next(err)
     }
   },
+
+  // Clientes sem contato há mais de N dias (padrão: 3)
+  // Exclui clientes criados hoje ("Novos")
+  async getOverdue(req, res, next) {
+    try {
+      const days = parseInt(req.query.days) || 3
+      const clients = await ClientModel.getOverdue(days)
+      res.json(clients)
+    } catch (err) {
+      next(err)
+    }
+  },
 }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Plus, Search, Upload, Phone, Star, Eye, UserX, RefreshCw,
   List, MapPin, Loader2, Instagram, X, Trash2, Download,
-  ArrowUpDown, ArrowUp, ArrowDown, Sparkles
+  ArrowUpDown, ArrowUp, ArrowDown, Sparkles, AlertTriangle
 } from 'lucide-react'
 
 const FILTERS_KEY = 'clients_filters'
@@ -17,11 +17,26 @@ import { formatDate, statusPill, NOTAS, UFS, whatsappLink, instagramLink } from 
 import { ClientForm } from '../components/ClientForm.jsx'
 import { EmptyState } from '../components/EmptyState.jsx'
 import { useAppModalError } from '../hooks/useAppModalError.js'
+import { useOverdueReminder } from '../hooks/useOverdueReminder.js'
+import { OverdueReminderModal } from '../components/OverdueReminderModal.jsx'
 
 function isCreatedToday(dateStr) {
   if (!dateStr) return false
   const today = new Date().toLocaleDateString('en-CA') // data local do usuário
   return dateStr.slice(0, 10) === today
+}
+
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
+
+// Retorna true se o cliente está sem contato há mais de 3 dias.
+// Clientes criados hoje ("Novos") nunca são considerados em atraso.
+// Clientes sem nenhum contato só entram se foram criados há mais de 3 dias.
+function isOverdue(client) {
+  if (isCreatedToday(client.created_at)) return false
+  if (client.ultimo_contato) {
+    return Date.now() - new Date(client.ultimo_contato) > THREE_DAYS_MS
+  }
+  return Date.now() - new Date(client.created_at) > THREE_DAYS_MS
 }
 
 // Agrupa array de clientes por UF, retorna objeto { 'SP': [...], 'RJ': [...] }
@@ -35,7 +50,7 @@ function groupByUF(clients) {
 }
 
 // Linha individual de cliente (reutilizada em ambos os modos)
-function ClientRow({ c, alreadyContacted, onContact, onDeactivate, onDelete, navigate }) {
+function ClientRow({ c, alreadyContacted, isAttention, onContact, onDeactivate, onDelete, navigate }) {
   return (
     <tr key={c.id}>
       <td>
@@ -45,6 +60,11 @@ function ClientRow({ c, alreadyContacted, onContact, onDeactivate, onDelete, nav
         >
           {c.nome}
         </button>
+        {isAttention && (
+          <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            <AlertTriangle size={10} /> Atenção
+          </span>
+        )}
         {isCreatedToday(c.created_at) && (
           <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Novo</span>
         )}
@@ -154,6 +174,7 @@ export function ClientsPage() {
   )
   const [nameSort, setNameSort] = useState('asc') // 'asc' | 'desc'
   const { modal, showModal } = useAppModalError()
+  const { overdueClients, showModal: showOverdueModal, dismiss: dismissOverdue } = useOverdueReminder()
 
   const [filters, setFilters] = useState(
     () => savedFilters() || { search: '', status_id: '', uf: '', ativo: '', page: 1 }
@@ -312,13 +333,15 @@ export function ClientsPage() {
 
   // ── Render modo "Por Estado" ────────────────────────────────────────────────
   function renderStateView() {
-    const newClients  = clients.filter(c => isCreatedToday(c.created_at))
-    const restClients = clients.filter(c => !isCreatedToday(c.created_at))
+    const newClients     = clients.filter(c => isCreatedToday(c.created_at))
+    const nonNewClients  = clients.filter(c => !isCreatedToday(c.created_at))
+    const overdueGroup   = nonNewClients.filter(c => isOverdue(c))
+    const normalClients  = nonNewClients.filter(c => !isOverdue(c))
 
-    const grouped   = groupByUF(restClients)
+    const grouped   = groupByUF(normalClients)
     const sortedUFs = Object.keys(grouped).sort((a, b) => a.localeCompare(b))
 
-    if (newClients.length === 0 && sortedUFs.length === 0)
+    if (newClients.length === 0 && overdueGroup.length === 0 && sortedUFs.length === 0)
       return <EmptyState icon={Search} message="Nenhum cliente encontrado" />
 
     function UFSection({ uf, rows }) {
@@ -345,6 +368,27 @@ export function ClientsPage() {
 
     return (
       <div className="space-y-6">
+        {/* Seção Atenção — clientes sem contato há mais de 3 dias */}
+        {overdueGroup.length > 0 && (
+          <div className="table-wrapper">
+            <div className="flex items-center gap-2 px-4 py-2 bg-amber-950 border-b border-amber-800">
+              <AlertTriangle size={14} className="text-amber-400" />
+              <span className="font-semibold text-amber-300 text-sm">Atenção</span>
+              <span className="text-amber-700 text-xs">
+                {overdueGroup.length} cliente{overdueGroup.length !== 1 ? 's' : ''} sem contato há mais de 3 dias
+              </span>
+            </div>
+            <table className="table">
+              {tableHead}
+              <tbody>
+                {sortByName(overdueGroup).map(c => (
+                  <ClientRow key={c.id} c={c} isAttention alreadyContacted={contactedToday.has(c.id)} {...rowProps} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* Seção Novos — clientes criados hoje */}
         {newClients.length > 0 && (
           <div className="table-wrapper">
@@ -388,6 +432,7 @@ export function ClientsPage() {
                 <ClientRow
                   key={c.id}
                   c={c}
+                  isAttention={isOverdue(c)}
                   alreadyContacted={contactedToday.has(c.id)}
                   {...rowProps}
                 />
@@ -425,6 +470,9 @@ export function ClientsPage() {
   return (
     <div className="p-4 md:p-6 space-y-4">
       {modal}
+      {showOverdueModal && (
+        <OverdueReminderModal clients={overdueClients} onClose={dismissOverdue} />
+      )}
 
       {/* Modal inativar / deletar */}
       {confirmModal && (
