@@ -319,6 +319,24 @@ export const ClientModel = {
     await db.query('DELETE FROM observations WHERE id = $1', [id])
   },
 
+  // Retorna clientes ativos que estão há mais de `days` dias sem contato.
+  // Exclui clientes criados hoje ("Novos") — eles ainda não tiveram chance de ser contatados.
+  async getOverdue(days = 3) {
+    const { rows } = await db.query(
+      `SELECT id, nome, cidade, uf, whatsapp, ultimo_contato, status_id
+       FROM clients
+       WHERE ativo = true
+         AND created_at::date < (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
+         AND (
+           ultimo_contato < NOW() - ($1 || ' days')::INTERVAL
+           OR (ultimo_contato IS NULL AND created_at < NOW() - ($1 || ' days')::INTERVAL)
+         )
+       ORDER BY ultimo_contato ASC NULLS FIRST`,
+      [days]
+    )
+    return rows
+  },
+
   // Importação em lote (Excel) — registra new_client para cada novo
   async bulkUpsert(records) {
     const client = await db.connect()

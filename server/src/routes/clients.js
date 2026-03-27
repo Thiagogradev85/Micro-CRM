@@ -3,9 +3,10 @@ import { ClientController } from '../controllers/ClientController.js'
 
 const router = Router()
 
-// Importação e exportação — devem vir ANTES das rotas com /:id
-router.post('/import', ClientController.importExcel)
+// Rotas estáticas — devem vir ANTES das rotas com /:id
+router.post('/import',                        ClientController.importExcel)
 router.get('/export',                         ClientController.exportClients)
+router.get('/overdue',                        ClientController.getOverdue)
 
 router.get('/',                               ClientController.list)
 router.get('/:id',                            ClientController.get)
