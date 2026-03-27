@@ -1,4 +1,4 @@
-const BASE = '/api'
+const BASE = import.meta.env.VITE_API_URL ?? '/api'
 
 // Converte erros técnicos em mensagens amigáveis ao usuário
 function friendlyError(status, raw) {
