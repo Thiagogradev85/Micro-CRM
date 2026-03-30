@@ -7,6 +7,7 @@ const router = Router()
 router.post('/import',                        ClientController.importExcel)
 router.get('/export',                         ClientController.exportClients)
 router.get('/overdue',                        ClientController.getOverdue)
+router.get('/duplicates',                     ClientController.findDuplicates)
 
 router.get('/',                               ClientController.list)
 router.get('/:id',                            ClientController.get)

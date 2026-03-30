@@ -1,2 +1,2 @@
-// Re-exporta do arquivo .jsx que contém JSX
-export { useAppModalError } from './useAppModalError.jsx'
+// Compatibilidade — use useModal diretamente em código novo
+export { useModal as useAppModalError } from './useModal.jsx'

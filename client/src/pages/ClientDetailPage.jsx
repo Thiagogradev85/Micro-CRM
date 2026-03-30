@@ -43,6 +43,40 @@ export function ClientDetailPage() {
 
   useEffect(() => { load() }, [load])
 
+  function openDeleteConfirm() {
+    showModal({
+      type: 'warning',
+      title: `Excluir ${client.nome}?`,
+      message: 'Escolha entre inativar (mantém o histórico) ou excluir permanentemente do banco.',
+      actions: [
+        {
+          label: 'Inativar (manter histórico)',
+          variant: 'secondary',
+          onClick: async () => {
+            try {
+              await api.deleteClient(client.id, false)
+              navigate('/clients')
+            } catch (err) {
+              showModal({ type: 'error', title: 'Erro', message: err.message })
+            }
+          },
+        },
+        {
+          label: 'Excluir permanentemente',
+          variant: 'danger',
+          onClick: async () => {
+            try {
+              await api.deleteClient(client.id, true)
+              navigate('/clients')
+            } catch (err) {
+              showModal({ type: 'error', title: 'Erro', message: err.message })
+            }
+          },
+        },
+      ],
+    })
+  }
+
   async function handleSave() {
     const errs = {}
     if (!form.nome?.trim()) errs.nome = true
@@ -213,6 +247,9 @@ export function ClientDetailPage() {
                 <Edit2 size={14} /> Editar
               </button>
             )}
+            <button className="btn-danger btn-sm" onClick={openDeleteConfirm} title="Excluir cliente">
+              <Trash2 size={14} />
+            </button>
           </div>
         </div>
 

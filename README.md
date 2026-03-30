@@ -57,7 +57,7 @@ O módulo de prospecção busca empresas no **Google Maps via Serper API** e fil
 
 1. Acesse **Prospecção** no menu lateral (ícone 🔭)
 2. Preencha:
-   - **Segmento** — tipo de negócio (ex: `farmácia`, `mercado`, `clínica`)
+   - **Segmento** — tipo de negócio. Separe por vírgulas para buscar múltiplos segmentos de uma vez (ex: `farmácia, clínica, mercado`)
    - **Estado** — UF opcional para refinar a busca
    - **Cidade** — cidade opcional
 3. Clique em **Buscar prospects**
@@ -66,9 +66,23 @@ O módulo de prospecção busca empresas no **Google Maps via Serper API** e fil
    - ⚪ **Já existem** — empresas que já estão na base (bloqueadas)
 5. Selecione os desejados e clique em **Salvar selecionados**
 
+> Quando múltiplos segmentos são informados, o sistema faz uma busca separada para cada um e combina os resultados, maximizando o número de prospects encontrados.
+
+### Detecção de duplicatas
+
+A deduplicação usa **similaridade fuzzy** para identificar empresas já cadastradas:
+- Telefone idêntico
+- Nome contém o outro (substring)
+- Similaridade Jaccard ≥ 60% das palavras significativas
+- Distância de edição (Levenshtein) ≤ 20% do tamanho do nome
+
+### Verificar duplicatas no banco
+
+Na tela de **Clientes**, clique em **Duplicatas** para escanear toda a base e encontrar registros similares. O sistema exibe grupos de possíveis duplicatas e permite excluir o registro redundante diretamente.
+
 ### Limite do plano gratuito Serper
 
-O plano **free** oferece **2.500 buscas/mês**, com renovação automática no início de cada mês.
+O plano **free** oferece **2.500 buscas/mês** (cada segmento consome 1 crédito), com renovação automática no início de cada mês.
 Ao atingir o limite, um modal avisará o usuário com opção de assinar um plano pago em [serper.dev](https://serper.dev).
 
 ### Configurar a chave Serper
@@ -93,6 +107,44 @@ Variáveis necessárias no Render: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `SERPER_
 
 ---
 
+## Sistema de Modais
+
+Todos os modais de feedback e confirmação passam pelo hook centralizado `useModal`:
+
+```jsx
+import { useModal } from '../hooks/useModal.js'
+
+const { modal, showModal } = useModal()
+
+// Alerta simples
+showModal({ type: 'success', title: 'Salvo!', message: 'Operação concluída.' })
+showModal({ type: 'error',   title: 'Erro',   message: err.message })
+
+// Confirmação com ações
+showModal({
+  type: 'warning',
+  title: 'Excluir cliente?',
+  message: 'Esta ação não pode ser desfeita.',
+  actions: [
+    { label: 'Excluir', variant: 'danger', onClick: () => handleDelete() },
+  ],
+})
+
+// No JSX da página:
+return <div>{modal} ...</div>
+```
+
+| Tipo | Ícone | Uso |
+|------|-------|-----|
+| `success` | ✅ verde | Operação concluída |
+| `error` | ❌ vermelho | Falha / exceção |
+| `warning` | ⚠️ amarelo | Confirmação destrutiva |
+| `info` | ℹ️ azul | Informação neutra |
+
+**Nunca usar modais inline nas páginas.** Modais complexos (ex: lista de duplicatas) vivem em `components/` como componentes dedicados.
+
+---
+
 ## Documentação completa
 
 Acesse o **[Wiki do repositório](https://github.com/Thiagogradev85/Leads-React-JS/wiki)** para:
@@ -102,5 +154,5 @@ Acesse o **[Wiki do repositório](https://github.com/Thiagogradev85/Leads-React-
 - API — todos os endpoints
 - Módulo WhatsApp (Baileys)
 - Módulo E-mail (Nodemailer)
-- Tratamento de erros (AppError + useAppModalError)
+- Sistema de modais (AppModal + useModal)
 - Versioning e releases

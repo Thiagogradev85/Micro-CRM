@@ -175,25 +175,27 @@ export function ProspectingPage() {
       {!loading && results && (
         <div className="space-y-4">
           {/* Summary bar */}
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span className="text-zinc-300 font-medium">
-              {results.total} encontrado{results.total !== 1 ? 's' : ''}
-            </span>
-            <span className="text-zinc-600">·</span>
-            <span className="text-emerald-400">
-              {results.unique.length} novo{results.unique.length !== 1 ? 's' : ''}
-            </span>
-            {results.duplicates.length > 0 && (
-              <>
-                <span className="text-zinc-600">·</span>
-                <span className="text-zinc-500">
-                  {results.duplicates.length} já existe{results.duplicates.length !== 1 ? 'm' : ''} na base
-                </span>
-              </>
-            )}
-            <span className="text-zinc-600 text-xs ml-auto">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <span className="text-zinc-300 font-medium">
+                {results.total} encontrado{results.total !== 1 ? 's' : ''}
+              </span>
+              <span className="text-zinc-600">·</span>
+              <span className="text-emerald-400">
+                {results.unique.length} novo{results.unique.length !== 1 ? 's' : ''}
+              </span>
+              {results.duplicates.length > 0 && (
+                <>
+                  <span className="text-zinc-600">·</span>
+                  <span className="text-zinc-500">
+                    {results.duplicates.length} já existe{results.duplicates.length !== 1 ? 'm' : ''} na base
+                  </span>
+                </>
+              )}
+            </div>
+            <p className="text-zinc-600 text-xs break-words">
               Busca: <span className="text-zinc-400 italic">"{results.query}"</span>
-            </span>
+            </p>
           </div>
 
           {/* Action bar — only shown when there are unique prospects */}

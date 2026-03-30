@@ -4,7 +4,7 @@ import {
   Plus, Search, Upload, Phone, Star, Eye, UserX, RefreshCw,
   List, MapPin, Loader2, Instagram, X, Trash2, Download,
   ArrowUpDown, ArrowUp, ArrowDown, Sparkles, AlertTriangle,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, CopyX
 } from 'lucide-react'
 
 const FILTERS_KEY = 'clients_filters'
@@ -17,9 +17,10 @@ import { api } from '../utils/api.js'
 import { formatDate, statusPill, NOTAS, UFS, whatsappLink, instagramLink } from '../utils/constants.js'
 import { ClientForm } from '../components/ClientForm.jsx'
 import { EmptyState } from '../components/EmptyState.jsx'
-import { useAppModalError } from '../hooks/useAppModalError.js'
+import { useModal } from '../hooks/useModal.js'
 import { useOverdueReminder } from '../hooks/useOverdueReminder.js'
 import { OverdueReminderModal } from '../components/OverdueReminderModal.jsx'
+import { DuplicatesModal } from '../components/DuplicatesModal.jsx'
 
 function isCreatedToday(dateStr) {
   if (!dateStr) return false
@@ -62,9 +63,9 @@ function groupByUF(clients) {
 function ClientRow({ c, alreadyContacted, isAttention, onContact, onDeactivate, onDelete, navigate }) {
   return (
     <tr key={c.id}>
-      <td>
+      <td className="max-w-[180px] break-words">
         <button
-          className="text-sky-400 hover:text-sky-300 font-medium text-left"
+          className="text-sky-400 hover:text-sky-300 font-medium text-left break-words"
           onClick={() => navigate(`/clients/${c.id}`)}
         >
           {c.nome}
@@ -121,8 +122,8 @@ function ClientRow({ c, alreadyContacted, isAttention, onContact, onDeactivate, 
       <td className="hidden lg:table-cell text-zinc-400">
         {formatDate(c.ultimo_contato)}
       </td>
-      <td>
-        <div className="flex gap-1.5 flex-wrap">
+      <td className="whitespace-nowrap">
+        <div className="flex gap-1.5">
           <button
             className={`btn btn-sm ${alreadyContacted ? 'btn-secondary opacity-40' : 'btn-primary'}`}
             onClick={() => !alreadyContacted && onContact(c)}
@@ -175,8 +176,8 @@ export function ClientsPage() {
   const [importing, setImporting] = useState(false)
   const [showForm, setShowForm]   = useState(false)
   const [contactedToday, setContactedToday] = useState(new Set())
-  const [confirmModal, setConfirmModal] = useState(null) // { client }
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [dupModal, setDupModal] = useState(null)
   // 'state' = agrupado por estado | 'list' = lista plana com paginação
   const [viewMode, setViewMode] = useState(
     () => sessionStorage.getItem(VIEW_KEY) || 'state'
@@ -191,7 +192,7 @@ export function ClientsPage() {
   const [newClientsOpen, setNewClientsOpen] = useState(
     () => sessionStorage.getItem('section_newclients') === 'true'
   )
-  const { modal, showModal } = useAppModalError()
+  const { modal, showModal } = useModal()
   const { overdueClients, showModal: showOverdueModal, dismiss: dismissOverdue } = useOverdueReminder()
 
   const [filters, setFilters] = useState(
@@ -243,20 +244,85 @@ export function ClientsPage() {
     }
   }
 
-  async function handleDeactivate(client) {
-    setConfirmModal({ client, mode: 'deactivate' })
+  function handleDeactivate(client) {
+    showModal({
+      type: 'warning',
+      title: `O que deseja fazer com ${client.nome}?`,
+      message: 'Escolha entre inativar (mantém o histórico) ou excluir permanentemente do banco.',
+      actions: [
+        {
+          label: 'Inativar (manter histórico)',
+          variant: 'secondary',
+          onClick: async () => {
+            try {
+              await api.deleteClient(client.id, false)
+              showModal({ type: 'success', title: 'Concluído', message: `${client.nome} inativado.` })
+              load()
+            } catch (err) {
+              showModal({ type: 'error', title: 'Erro', message: err.message })
+            }
+          },
+        },
+        {
+          label: 'Excluir permanentemente',
+          variant: 'danger',
+          onClick: async () => {
+            try {
+              await api.deleteClient(client.id, true)
+              showModal({ type: 'success', title: 'Concluído', message: `${client.nome} excluído permanentemente.` })
+              load()
+            } catch (err) {
+              showModal({ type: 'error', title: 'Erro', message: err.message })
+            }
+          },
+        },
+      ],
+    })
   }
 
-  async function handleDelete(client) {
-    setConfirmModal({ client, mode: 'delete' })
+  function handleDelete(client) {
+    showModal({
+      type: 'warning',
+      title: `Excluir ${client.nome}?`,
+      message: 'Esta ação é permanente e não pode ser desfeita.',
+      actions: [
+        {
+          label: 'Sim, excluir permanentemente',
+          variant: 'danger',
+          onClick: async () => {
+            try {
+              await api.deleteClient(client.id, true)
+              showModal({ type: 'success', title: 'Concluído', message: `${client.nome} excluído permanentemente.` })
+              load()
+            } catch (err) {
+              showModal({ type: 'error', title: 'Erro', message: err.message })
+            }
+          },
+        },
+      ],
+    })
   }
 
-  async function handleConfirmAction(permanent) {
-    const { client } = confirmModal
-    setConfirmModal(null)
+  async function handleOpenDuplicates() {
+    setDupModal({ loading: true })
     try {
-      await api.deleteClient(client.id, permanent)
-      showModal({ type: 'success', title: 'Concluído', message: permanent ? `${client.nome} excluído permanentemente.` : `${client.nome} inativado.` })
+      const data = await api.findDuplicates()
+      setDupModal({ groups: data.groups })
+    } catch (err) {
+      setDupModal(null)
+      showModal({ type: 'error', title: 'Erro', message: err.message })
+    }
+  }
+
+  async function handleDeleteDuplicate(client, groupIdx) {
+    try {
+      await api.deleteClient(client.id, true)
+      setDupModal(prev => {
+        const groups = prev.groups
+          .map((g, i) => i === groupIdx ? g.filter(c => c.id !== client.id) : g)
+          .filter(g => g.length > 1)
+        return { groups }
+      })
       load()
     } catch (err) {
       showModal({ type: 'error', title: 'Erro', message: err.message })
@@ -571,52 +637,16 @@ export function ClientsPage() {
   return (
     <div className="p-4 md:p-6 space-y-4">
       {modal}
+
+      <DuplicatesModal
+        state={dupModal}
+        onClose={() => setDupModal(null)}
+        onDelete={handleDeleteDuplicate}
+        navigate={navigate}
+      />
+
       {showOverdueModal && (
         <OverdueReminderModal clients={overdueClients} onClose={dismissOverdue} />
-      )}
-
-      {/* Modal inativar / deletar */}
-      {confirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-sm shadow-2xl space-y-4">
-            {confirmModal.mode === 'delete' ? (
-              <>
-                <h3 className="font-semibold text-zinc-100">Excluir <span className="text-sky-400">{confirmModal.client.nome}</span>?</h3>
-                <p className="text-zinc-400 text-sm">Esta ação é permanente e não pode ser desfeita. O cliente será removido do banco de dados.</p>
-                <div className="flex flex-col gap-2">
-                  <button
-                    className="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                    onClick={() => handleConfirmAction(true)}
-                  >
-                    <Trash2 size={15} /> Sim, excluir permanentemente
-                  </button>
-                  <button className="btn-ghost w-full text-sm" onClick={() => setConfirmModal(null)}>
-                    Cancelar
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h3 className="font-semibold text-zinc-100">O que deseja fazer com <span className="text-sky-400">{confirmModal.client.nome}</span>?</h3>
-                <p className="text-zinc-400 text-sm">Escolha entre inativar (mantém o histórico) ou excluir permanentemente do banco.</p>
-                <div className="flex flex-col gap-2">
-                  <button className="btn-secondary w-full" onClick={() => handleConfirmAction(false)}>
-                    <UserX size={15} /> Inativar (manter histórico)
-                  </button>
-                  <button
-                    className="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-                    onClick={() => handleConfirmAction(true)}
-                  >
-                    <Trash2 size={15} /> Excluir permanentemente
-                  </button>
-                  <button className="btn-ghost w-full text-sm" onClick={() => setConfirmModal(null)}>
-                    Cancelar
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
       )}
 
       {/* Overlay de importação */}
@@ -637,6 +667,9 @@ export function ClientsPage() {
           <p className="text-xs text-zinc-500">{total} clientes</p>
         </div>
         <div className="flex gap-2">
+          <button className="btn-secondary" onClick={handleOpenDuplicates} title="Verificar clientes duplicados">
+            <CopyX size={15} /> Duplicatas
+          </button>
           <label className={`btn-secondary cursor-pointer ${importing ? 'opacity-60 pointer-events-none' : ''}`}>
             {importing
               ? <><Loader2 size={15} className="animate-spin" /> Importando...</>

@@ -3,6 +3,7 @@ import { ClientModel } from '../models/ClientModel.js'
 import { importExcel } from '../modules/file-import/index.js'
 import { toExcel, toPDF } from '../modules/file-export/index.js'
 import { AppError } from '../utils/AppError.js'
+import { normalize, nameSimilar } from '../modules/prospecting/deduplication.js'
 
 function readFileFromRequest(req) {
   return new Promise((resolve, reject) => {
@@ -120,7 +121,6 @@ export const ClientController = {
       const { texto } = req.body
       if (!texto) throw new AppError('Texto obrigatório', 400)
       const data = await ClientModel.addObservation(req.params.id, texto)
-      await ClientModel.markContacted(req.params.id)
       res.status(201).json(data)
     } catch (err) {
       next(err)
@@ -186,6 +186,52 @@ export const ClientController = {
       const days = parseInt(req.query.days) || 3
       const clients = await ClientModel.getOverdue(days)
       res.json(clients)
+    } catch (err) {
+      next(err)
+    }
+  },
+
+  // GET /clients/duplicates
+  // Varre todos os clientes ativos e agrupa possíveis duplicatas por nome
+  // similar ou telefone igual.
+  async findDuplicates(req, res, next) {
+    try {
+      const result = await ClientModel.list({ ativo: 'true', limit: 9999, page: 1 })
+      const clients = result.data
+
+      const visited = new Set()
+      const groups  = []
+
+      for (let i = 0; i < clients.length; i++) {
+        if (visited.has(clients[i].id)) continue
+
+        const nameA  = normalize(clients[i].nome)
+        const phoneA = (clients[i].whatsapp || clients[i].telefone || '').replace(/\D/g, '')
+        const group  = [clients[i]]
+
+        for (let j = i + 1; j < clients.length; j++) {
+          if (visited.has(clients[j].id)) continue
+
+          const nameB  = normalize(clients[j].nome)
+          const phoneB = (clients[j].whatsapp || clients[j].telefone || '').replace(/\D/g, '')
+
+          const match =
+            (phoneA && phoneB && phoneA === phoneB) ||
+            nameSimilar(nameA, nameB)
+
+          if (match) {
+            group.push(clients[j])
+            visited.add(clients[j].id)
+          }
+        }
+
+        if (group.length > 1) {
+          visited.add(clients[i].id)
+          groups.push(group)
+        }
+      }
+
+      res.json({ total: groups.length, groups })
     } catch (err) {
       next(err)
     }

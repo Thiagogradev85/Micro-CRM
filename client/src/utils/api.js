@@ -80,6 +80,7 @@ export const api = {
   deleteClient:   (id, permanent = false) => request('DELETE', `/clients/${id}${permanent ? '?permanent=true' : ''}`),
   registerPurchase:(id)    => request('POST',   `/clients/${id}/purchase`),
   getOverdueClients: (days = 3) => request('GET', `/clients/overdue?days=${days}`),
+  findDuplicates:    ()         => request('GET', '/clients/duplicates'),
   exportClients: (params, format) => {
     const qs = new URLSearchParams({ ...params, format }).toString()
     window.open(`${BASE}/clients/export?${qs}`, '_blank')

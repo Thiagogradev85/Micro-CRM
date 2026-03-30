@@ -4,7 +4,7 @@ import db from '../../db/db.js'
  * Normalizes a string for fuzzy comparison:
  * lowercase, remove accents, strip non-alphanumeric.
  */
-function normalize(str) {
+export function normalize(str) {
   if (!str) return ''
   return str
     .toLowerCase()
@@ -66,7 +66,7 @@ function levenshtein(a, b) {
  *  2. Jaccard word similarity >= 0.6 (60% of significant words overlap)
  *  3. For short names (< 30 chars): edit distance <= 20% of the longer name's length
  */
-function nameSimilar(a, b) {
+export function nameSimilar(a, b) {
   if (!a || !b) return false
 
   // 1. Substring check (handles "Farmácia X" ↔ "Farmácia X Ltda")
