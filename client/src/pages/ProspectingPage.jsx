@@ -4,10 +4,10 @@ import { api } from '../utils/api.js'
 import { UFS } from '../utils/constants.js'
 import { ProspectCard } from '../components/ProspectCard.jsx'
 import { SerperLimitModal } from '../components/SerperLimitModal.jsx'
-import { useAppModalError } from '../hooks/useAppModalError.js'
+import { useModal } from '../hooks/useModal.js'
 
 export function ProspectingPage() {
-  const { modal, showModal } = useAppModalError()
+  const { modal, showModal } = useModal()
   const [showLimitModal, setShowLimitModal] = useState(false)
 
   // Search form

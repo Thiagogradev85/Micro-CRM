@@ -3,7 +3,7 @@ import { Plus, Edit2, Trash2, UserCheck } from 'lucide-react'
 import { api } from '../utils/api.js'
 import { UFS, whatsappLink } from '../utils/constants.js'
 import { EmptyState } from '../components/EmptyState.jsx'
-import { useAppModalError } from '../hooks/useAppModalError.js'
+import { useModal } from '../hooks/useModal.js'
 
 function SellerForm({ initial = {}, onSave, onCancel }) {
   const [nome,     setNome]     = useState(initial.nome || '')
@@ -69,7 +69,7 @@ export function SellersPage() {
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing]  = useState(null)
-  const { modal, showModal } = useAppModalError()
+  const { modal, showModal } = useModal()
 
   async function load() {
     setLoading(true)

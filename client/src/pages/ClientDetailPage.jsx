@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { api } from '../utils/api.js'
 import { formatDate, formatDateTime, statusPill, NOTAS, UFS, whatsappLink, instagramLink, facebookLink, twitterLink, linkedinLink } from '../utils/constants.js'
-import { useAppModalError } from '../hooks/useAppModalError.js'
+import { useModal } from '../hooks/useModal.js'
 
 export function ClientDetailPage() {
   const { id } = useParams()
@@ -23,7 +23,7 @@ export function ClientDetailPage() {
   const [fieldErrors, setFieldErrors] = useState({})
   const [obsText, setObsText]       = useState('')
   const [loading, setLoading]       = useState(false)
-  const { modal, showModal } = useAppModalError()
+  const { modal, showModal } = useModal()
 
   const load = useCallback(async () => {
     const [c, obs, s, cat, sel] = await Promise.all([

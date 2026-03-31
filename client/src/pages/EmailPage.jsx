@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { api } from '../utils/api.js'
 import { UFS } from '../utils/constants.js'
-import { useAppModalError } from '../hooks/useAppModalError.js'
+import { useModal } from '../hooks/useModal.js'
 
 // ── SMTP presets para os provedores mais comuns ───────────────────────────────
 const PRESETS = [
@@ -124,7 +124,7 @@ Equipe de Vendas`
   const [testEmail, setTestEmail]           = useState('')
   const [sendingTest, setSendingTest]       = useState(false)
 
-  const { modal, showModal } = useAppModalError()
+  const { modal, showModal } = useModal()
 
   // ── Polling de status ──────────────────────────────
   const pollStatus = useCallback(async () => {

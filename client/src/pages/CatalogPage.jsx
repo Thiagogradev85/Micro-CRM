@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { api } from '../utils/api.js'
 import { EmptyState } from '../components/EmptyState.jsx'
-import { useAppModalError } from '../hooks/useAppModalError.js'
+import { useModal } from '../hooks/useModal.js'
 import { ImageLightbox } from '../components/ImageLightbox.jsx'
 
 // ── Catalog date dropdowns ──────────────────────────────────────────────────
@@ -393,7 +393,7 @@ export function CatalogPage() {
   const [showProductForm, setShowProductForm] = useState(null) // catId
   const [editingProduct, setEditingProduct]   = useState(null)
   const [addExistingFor, setAddExistingFor]   = useState(null) // catId
-  const { modal, showModal } = useAppModalError()
+  const { modal, showModal } = useModal()
 
   async function loadCatalogs() {
     setLoading(true)

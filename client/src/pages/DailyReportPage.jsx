@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { api } from '../utils/api.js'
 import { formatDate } from '../utils/constants.js'
-import { useAppModalError } from '../hooks/useAppModalError.js'
+import { useModal } from '../hooks/useModal.js'
 
 function SummaryCard({ icon: Icon, label, value, color }) {
   return (
@@ -66,7 +66,7 @@ export function DailyReportPage() {
   const [date, setDate]       = useState(today)
   const [report, setReport]   = useState(null)
   const [loading, setLoading] = useState(false)
-  const { modal, showModal } = useAppModalError()
+  const { modal, showModal } = useModal()
 
   const load = useCallback(async () => {
     setLoading(true)

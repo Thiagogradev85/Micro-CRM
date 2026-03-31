@@ -4,11 +4,12 @@ import {
   Plus, Search, Upload, Phone, Star, Eye, UserX, RefreshCw,
   List, MapPin, Loader2, Instagram, X, Trash2, Download,
   ArrowUpDown, ArrowUp, ArrowDown, Sparkles, AlertTriangle,
-  ChevronDown, ChevronUp, CopyX
+  ChevronDown, ChevronUp, CopyX, Settings
 } from 'lucide-react'
 
-const FILTERS_KEY = 'clients_filters'
-const VIEW_KEY    = 'clients_viewMode'
+const FILTERS_KEY            = 'clients_filters'
+const VIEW_KEY               = 'clients_viewMode'
+const ATTENTION_IGNORED_UFS_KEY = 'attention_ignored_ufs'
 
 function savedFilters() {
   try { return JSON.parse(sessionStorage.getItem(FILTERS_KEY)) } catch { return null }
@@ -189,6 +190,13 @@ export function ClientsPage() {
   const [listAttentionOpen, setListAttentionOpen] = useState(
     () => sessionStorage.getItem('section_list_attention') === 'true'
   )
+  const [attentionIgnoredUFs, setAttentionIgnoredUFs] = useState(() => {
+    try {
+      const saved = localStorage.getItem(ATTENTION_IGNORED_UFS_KEY)
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch { return new Set() }
+  })
+  const [attentionUFPopover, setAttentionUFPopover] = useState(false)
   const [newClientsOpen, setNewClientsOpen] = useState(
     () => sessionStorage.getItem('section_newclients') === 'true'
   )
@@ -381,6 +389,19 @@ export function ClientsPage() {
     sessionStorage.setItem('section_newclients', newClientsOpen)
   }, [newClientsOpen])
 
+  useEffect(() => {
+    localStorage.setItem(ATTENTION_IGNORED_UFS_KEY, JSON.stringify([...attentionIgnoredUFs]))
+  }, [attentionIgnoredUFs])
+
+  function toggleIgnoredUF(uf) {
+    setAttentionIgnoredUFs(prev => {
+      const next = new Set(prev)
+      if (next.has(uf)) next.delete(uf)
+      else next.add(uf)
+      return next
+    })
+  }
+
   const EMPTY_FILTERS = { search: '', status_id: '', uf: '', ativo: '', page: 1 }
 
   const setFilter = (k, v) => setFilters(f => ({ ...f, [k]: v, page: 1 }))
@@ -427,16 +448,102 @@ export function ClientsPage() {
     })
   }
 
+  // ── Seção Atenção reutilizável (estado e lista) ─────────────────────────────
+  function renderAttentionSection(isOpen, setIsOpen) {
+    const allOverdue      = clients.filter(c => isOverdue(c))
+    const filteredOverdue = allOverdue.filter(c => !attentionIgnoredUFs.has(c.uf || '—'))
+    const ufOptions       = [...new Set(allOverdue.map(c => c.uf || '—'))].sort()
+
+    if (allOverdue.length === 0) return null
+
+    return (
+      <div className="table-wrapper">
+        {attentionUFPopover && (
+          <div className="fixed inset-0 z-10" onClick={() => setAttentionUFPopover(false)} />
+        )}
+        <div className="flex items-center bg-amber-950 border-b border-amber-800">
+          <button
+            className="flex-1 flex items-center gap-2 px-4 py-2 hover:bg-amber-900/60 transition-colors text-left"
+            onClick={() => setIsOpen(v => !v)}
+          >
+            <AlertTriangle size={14} className="text-amber-400" />
+            <span className="font-semibold text-amber-300 text-sm">Atenção</span>
+            <span className="text-amber-700 text-xs">
+              {filteredOverdue.length} cliente{filteredOverdue.length !== 1 ? 's' : ''} sem contato há mais de 3 dias
+              {attentionIgnoredUFs.size > 0 && (
+                <span className="ml-1 text-amber-800">
+                  · {attentionIgnoredUFs.size} UF{attentionIgnoredUFs.size !== 1 ? 's' : ''} oculta{attentionIgnoredUFs.size !== 1 ? 's' : ''}
+                </span>
+              )}
+            </span>
+            {isOpen
+              ? <ChevronUp size={14} className="ml-auto text-amber-600" />
+              : <ChevronDown size={14} className="ml-auto text-amber-600" />
+            }
+          </button>
+          <div className="relative px-2">
+            <button
+              className={`p-1.5 rounded transition-colors ${attentionIgnoredUFs.size > 0 ? 'text-amber-400 bg-amber-800/50' : 'text-amber-700 hover:text-amber-400 hover:bg-amber-800/30'}`}
+              title="Filtrar estados do grupo de atenção"
+              onClick={e => { e.stopPropagation(); setAttentionUFPopover(v => !v) }}
+            >
+              <Settings size={13} />
+            </button>
+            {attentionUFPopover && (
+              <div className="absolute right-0 top-full mt-1 z-20 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-3 min-w-[180px]">
+                <p className="text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wide">Ocultar estados</p>
+                <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto">
+                  {ufOptions.map(uf => (
+                    <label key={uf} className="flex items-center gap-2 cursor-pointer text-sm text-zinc-300 hover:text-zinc-100">
+                      <input
+                        type="checkbox"
+                        checked={attentionIgnoredUFs.has(uf)}
+                        onChange={() => toggleIgnoredUF(uf)}
+                        className="accent-amber-500"
+                      />
+                      <span>{uf}</span>
+                      <span className="ml-auto text-zinc-500 text-xs">
+                        {allOverdue.filter(c => (c.uf || '—') === uf).length}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {attentionIgnoredUFs.size > 0 && (
+                  <button
+                    className="mt-2 w-full text-xs text-amber-600 hover:text-amber-400 transition-colors"
+                    onClick={() => setAttentionIgnoredUFs(new Set())}
+                  >
+                    Limpar filtros
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        {isOpen && filteredOverdue.length > 0 && (
+          <table className="table">
+            {tableHead}
+            <tbody>
+              {sortByName(filteredOverdue).map(c => (
+                <ClientRow key={c.id} c={c} isAttention alreadyContacted={contactedToday.has(c.id)} {...rowProps} />
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    )
+  }
+
   // ── Render modo "Por Estado" ────────────────────────────────────────────────
   function renderStateView() {
     const newClients    = clients.filter(c => isCreatedToday(c.created_at))
-    const overdueGroup  = clients.filter(c => isOverdue(c))
+    const allOverdue    = clients.filter(c => isOverdue(c))
     const normalClients = clients.filter(c => !isOverdue(c))
 
     const grouped   = groupByUF(normalClients)
     const sortedUFs = Object.keys(grouped).sort((a, b) => a.localeCompare(b))
 
-    if (newClients.length === 0 && overdueGroup.length === 0 && sortedUFs.length === 0)
+    if (newClients.length === 0 && allOverdue.length === 0 && sortedUFs.length === 0)
       return <EmptyState icon={Search} message="Nenhum cliente encontrado" />
 
     function UFSection({ uf, rows }) {
@@ -474,34 +581,7 @@ export function ClientsPage() {
     return (
       <div className="space-y-6">
         {/* Seção Atenção — clientes sem contato há mais de 3 dias */}
-        {overdueGroup.length > 0 && (
-          <div className="table-wrapper">
-            <button
-              className="w-full flex items-center gap-2 px-4 py-2 bg-amber-950 border-b border-amber-800 hover:bg-amber-900/60 transition-colors text-left"
-              onClick={() => setAttentionOpen(v => !v)}
-            >
-              <AlertTriangle size={14} className="text-amber-400" />
-              <span className="font-semibold text-amber-300 text-sm">Atenção</span>
-              <span className="text-amber-700 text-xs">
-                {overdueGroup.length} cliente{overdueGroup.length !== 1 ? 's' : ''} sem contato há mais de 3 dias
-              </span>
-              {attentionOpen
-                ? <ChevronUp size={14} className="ml-auto text-amber-600" />
-                : <ChevronDown size={14} className="ml-auto text-amber-600" />
-              }
-            </button>
-            {attentionOpen && (
-              <table className="table">
-                {tableHead}
-                <tbody>
-                  {sortByName(overdueGroup).map(c => (
-                    <ClientRow key={c.id} c={c} isAttention alreadyContacted={contactedToday.has(c.id)} {...rowProps} />
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
+        {renderAttentionSection(attentionOpen, setAttentionOpen)}
 
         {/* Seção Novos — clientes criados hoje */}
         {newClients.length > 0 && (
@@ -545,7 +625,6 @@ export function ClientsPage() {
   function renderListView() {
     if (clients.length === 0) return <EmptyState icon={Search} message="Nenhum cliente encontrado" />
 
-    const overdueGroup   = clients.filter(c => isOverdue(c))
     const normalClients  = sortByName(clients.filter(c => !isOverdue(c)))
     const totalPages     = Math.ceil(normalClients.length / 50)
     const pageClients    = normalClients.slice((filters.page - 1) * 50, filters.page * 50)
@@ -553,34 +632,7 @@ export function ClientsPage() {
     return (
       <>
         {/* Seção Atenção */}
-        {overdueGroup.length > 0 && (
-          <div className="table-wrapper">
-            <button
-              className="w-full flex items-center gap-2 px-4 py-2 bg-amber-950 border-b border-amber-800 hover:bg-amber-900/60 transition-colors text-left"
-              onClick={() => setListAttentionOpen(v => !v)}
-            >
-              <AlertTriangle size={14} className="text-amber-400" />
-              <span className="font-semibold text-amber-300 text-sm">Atenção</span>
-              <span className="text-amber-700 text-xs">
-                {overdueGroup.length} cliente{overdueGroup.length !== 1 ? 's' : ''} sem contato há mais de 3 dias
-              </span>
-              {listAttentionOpen
-                ? <ChevronUp size={14} className="ml-auto text-amber-600" />
-                : <ChevronDown size={14} className="ml-auto text-amber-600" />
-              }
-            </button>
-            {listAttentionOpen && (
-              <table className="table">
-                {tableHead}
-                <tbody>
-                  {sortByName(overdueGroup).map(c => (
-                    <ClientRow key={c.id} c={c} isAttention alreadyContacted={contactedToday.has(c.id)} {...rowProps} />
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
+        {renderAttentionSection(listAttentionOpen, setListAttentionOpen)}
 
         {/* Tabela principal (sem clientes em atraso) */}
         {pageClients.length > 0 && (

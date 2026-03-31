@@ -32,17 +32,17 @@ app.use((err, req, res, _next) => {
 
 Erros inesperados (crash de DB, bug de código) → status 500, mensagem genérica, detalhes nos logs.
 
-## Frontend — useAppModalError
+## Frontend — useModal
 
-`client/src/hooks/useAppModalError.jsx` — hook para exibir modais de feedback em qualquer página.
+`client/src/hooks/useModal.js` — hook para exibir modais de feedback em qualquer página.
 
 **Uso:**
 
 ```jsx
-import { useAppModalError } from '../hooks/useAppModalError.js'
+import { useModal } from '../hooks/useModal.js'
 
 function MinhaPage() {
-  const { modal, showModal } = useAppModalError()
+  const { modal, showModal } = useModal()
 
   async function handleSalvar() {
     try {
@@ -64,4 +64,4 @@ function MinhaPage() {
 
 **Tipos disponíveis:** `success` · `error` · `warning` · `info`
 
-> `useAppModal` e `AppModal` são re-exports de compatibilidade. Use sempre `useAppModalError` e `AppModalError` diretamente.
+> `useAppModalError` existe apenas como re-export de compatibilidade — não use em código novo.

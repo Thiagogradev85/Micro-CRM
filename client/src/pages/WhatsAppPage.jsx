@@ -4,7 +4,7 @@ import {
   CheckCircle, Clock, AlertTriangle, Loader2, ChevronDown, X
 } from 'lucide-react'
 import { api } from '../utils/api.js'
-import { useAppModalError } from '../hooks/useAppModalError.js'
+import { useModal } from '../hooks/useModal.js'
 import { UFS } from '../utils/constants.js'
 
 function UFMultiSelect({ selected, onChange }) {
@@ -93,7 +93,7 @@ export function WhatsAppPage() {
   const [sending, setSending]     = useState(false)
   const [sendResult, setSendResult] = useState(null) // { message, total }
   const [loadingPreview, setLoadingPreview] = useState(false)
-  const { modal, showModal } = useAppModalError()
+  const { modal, showModal } = useModal()
 
   // Polling de status/QR
   const pollStatus = useCallback(async () => {
