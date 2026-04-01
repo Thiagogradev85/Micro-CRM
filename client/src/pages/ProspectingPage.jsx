@@ -93,6 +93,23 @@ export function ProspectingPage() {
     }
   }
 
+  function handleEdit(index, data) {
+    setResults(prev => {
+      const unique = [...prev.unique]
+      const updated = { ...unique[index], ...data }
+      // Recalculate WhatsApp link when phone number changes
+      if (data.whatsapp !== undefined) {
+        const digits = data.whatsapp.replace(/\D/g, '')
+        const isMobile = digits.length === 11 && digits[2] === '9'
+        updated.whatsapp      = digits || null
+        updated.telefone      = digits || null
+        updated._whatsappLink = isMobile ? `https://wa.me/55${digits}` : null
+      }
+      unique[index] = updated
+      return { ...prev, unique }
+    })
+  }
+
   const allSelected = results && selected.size === results.unique.length && results.unique.length > 0
 
   return (
@@ -236,6 +253,7 @@ export function ProspectingPage() {
                     selected={selected.has(i)}
                     onToggle={() => toggleOne(i)}
                     duplicate={false}
+                    onEdit={data => handleEdit(i, data)}
                   />
                 ))}
               </div>
