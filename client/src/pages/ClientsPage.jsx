@@ -465,9 +465,9 @@ export function ClientsPage() {
   function renderAttentionSection(isOpen, setIsOpen) {
     const allOverdue      = clients.filter(c => isOverdue(c, attentionDays))
     const filteredOverdue = allOverdue.filter(c => !attentionIgnoredUFs.has(c.uf || '—'))
-    const ufOptions       = [...new Set(allOverdue.map(c => c.uf || '—'))].sort()
+    const ufOptions       = [...new Set(clients.map(c => c.uf || '—'))].sort()
 
-    if (allOverdue.length === 0) return null
+    if (allOverdue.length === 0 && attentionIgnoredUFs.size === 0) return null
 
     return (
       <div className="table-wrapper">
@@ -482,7 +482,7 @@ export function ClientsPage() {
             <AlertTriangle size={14} className="text-amber-400" />
             <span className="font-semibold text-amber-300 text-sm">Atenção</span>
             <span className="text-amber-700 text-xs">
-              {filteredOverdue.length} cliente{filteredOverdue.length !== 1 ? 's' : ''} sem contato há mais de 3 dias
+              {filteredOverdue.length} cliente{filteredOverdue.length !== 1 ? 's' : ''} sem contato há mais de {attentionDays} dias
               {attentionIgnoredUFs.size > 0 && (
                 <span className="ml-1 text-amber-800">
                   · {attentionIgnoredUFs.size} UF{attentionIgnoredUFs.size !== 1 ? 's' : ''} oculta{attentionIgnoredUFs.size !== 1 ? 's' : ''}
@@ -497,13 +497,13 @@ export function ClientsPage() {
           <div className="relative px-2">
             <button
               className={`p-1.5 rounded transition-colors ${attentionIgnoredUFs.size > 0 ? 'text-amber-400 bg-amber-800/50' : 'text-amber-700 hover:text-amber-400 hover:bg-amber-800/30'}`}
-              title="Filtrar estados do grupo de atenção"
+              title="Configurar estados do grupo de atenção"
               onClick={e => { e.stopPropagation(); setAttentionUFPopover(v => !v) }}
             >
               <Settings size={13} />
             </button>
             {attentionUFPopover && (
-              <div className="absolute right-0 top-full mt-1 z-20 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-3 min-w-[200px]">
+              <div className="absolute right-0 top-full mt-1 z-20 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-3 min-w-[220px]">
                 <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-700">
                   <span className="text-xs text-zinc-400">Alertar após</span>
                   <input
@@ -517,7 +517,17 @@ export function ClientsPage() {
                   />
                   <span className="text-xs text-zinc-400">dias</span>
                 </div>
-                <p className="text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wide">Ocultar estados</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Estados ocultos</p>
+                  {attentionIgnoredUFs.size > 0 && (
+                    <button
+                      className="text-xs text-amber-600 hover:text-amber-400 transition-colors"
+                      onClick={e => { e.stopPropagation(); setAttentionIgnoredUFs(new Set()) }}
+                    >
+                      Mostrar todos
+                    </button>
+                  )}
+                </div>
                 <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto">
                   {ufOptions.map(uf => (
                     <label key={uf} className="flex items-center gap-2 cursor-pointer text-sm text-zinc-300 hover:text-zinc-100">
@@ -527,21 +537,13 @@ export function ClientsPage() {
                         onChange={() => toggleIgnoredUF(uf)}
                         className="accent-amber-500"
                       />
-                      <span>{uf}</span>
+                      <span className={attentionIgnoredUFs.has(uf) ? 'line-through text-zinc-500' : ''}>{uf}</span>
                       <span className="ml-auto text-zinc-500 text-xs">
                         {allOverdue.filter(c => (c.uf || '—') === uf).length}
                       </span>
                     </label>
                   ))}
                 </div>
-                {attentionIgnoredUFs.size > 0 && (
-                  <button
-                    className="mt-2 w-full text-xs text-amber-600 hover:text-amber-400 transition-colors"
-                    onClick={() => setAttentionIgnoredUFs(new Set())}
-                  >
-                    Limpar filtros
-                  </button>
-                )}
               </div>
             )}
           </div>
