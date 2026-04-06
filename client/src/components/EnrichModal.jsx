@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { Sparkles, Phone, Instagram, Mail, Facebook, X, Check, Loader2, AlertTriangle } from 'lucide-react'
+import { Sparkles, Phone, Instagram, Mail, Facebook, X, Check, Loader2, AlertTriangle, MapPin } from 'lucide-react'
 import { api } from '../utils/api.js'
 
 const FIELD_META = {
-  instagram: { label: 'Instagram', icon: Instagram,  color: 'text-pink-400' },
-  facebook:  { label: 'Facebook',  icon: Facebook,   color: 'text-blue-400' },
-  email:     { label: 'E-mail',    icon: Mail,        color: 'text-sky-400'  },
-  whatsapp:  { label: 'WhatsApp',  icon: Phone,       color: 'text-green-400'},
-  telefone:  { label: 'Telefone',  icon: Phone,       color: 'text-zinc-300' },
+  cidade:    { label: 'Cidade',    icon: MapPin,      color: 'text-amber-400' },
+  instagram: { label: 'Instagram', icon: Instagram,   color: 'text-pink-400'  },
+  facebook:  { label: 'Facebook',  icon: Facebook,    color: 'text-blue-400'  },
+  email:     { label: 'E-mail',    icon: Mail,        color: 'text-sky-400'   },
+  whatsapp:  { label: 'WhatsApp',  icon: Phone,       color: 'text-green-400' },
+  telefone:  { label: 'Telefone',  icon: Phone,       color: 'text-zinc-300'  },
 }
 
 /**

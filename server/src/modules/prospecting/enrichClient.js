@@ -72,6 +72,38 @@ const UF_DDDS = {
   TO: ['63'],
 }
 
+// Palavras que não são nomes de cidades (logradouros, países, etc.)
+const CITY_BLOCKED_STARTS = [
+  'rua', 'av ', 'avenida', 'travessa', 'alameda', 'praça', 'r.', 'al.',
+  'rodovia', 'estrada', 'viela', 'beco', 'brazil', 'brasil',
+]
+
+/**
+ * Extrai nome de cidade a partir de um endereço contendo o UF.
+ * Ex: "Rua X, 360, São José, SC, Brazil" → "São José"
+ * Ex: "Av. Beira Mar, 1234 - Florianópolis - SC" → "Florianópolis"
+ */
+function extractCityFromAddress(address, uf) {
+  if (!address || !uf) return null
+  const ufUpper = uf.toUpperCase()
+
+  // Padrões: "Cidade, UF" | "Cidade - UF" | "Cidade / UF"
+  const pattern = new RegExp(
+    String.raw`([A-Za-zÀ-ÖØ-öø-ÿ]+(?:[\s-][A-Za-zÀ-ÖØ-öø-ÿ]+){0,4})\s*[,\-/]\s*${ufUpper}`,
+    'i'
+  )
+  const m = address.match(pattern)
+  if (!m) return null
+
+  const city = m[1].trim()
+  if (city.length < 3 || city.length > 60) return null
+  const lower = city.toLowerCase()
+  if (CITY_BLOCKED_STARTS.some(b => lower.startsWith(b))) return null
+  // Primeira letra maiúscula indica nome próprio (evita capturar fragmentos de frase)
+  if (!/^[A-ZÀ-Ö]/.test(city)) return null
+  return city
+}
+
 function dddMatchesUF(digits, uf) {
   if (!uf) return true  // sem UF cadastrada, aceita qualquer DDD
   const validDDDs = UF_DDDS[uf.toUpperCase()]
@@ -113,6 +145,12 @@ function parseKnowledgeGraph(kg, uf = null) {
   const email = kg.email || ''
   if (email) result.email = extractEmail(email) || undefined
 
+  // Cidade a partir do endereço estruturado
+  const address = kg.address || kg.formattedAddress || ''
+  if (address && uf) {
+    result.cidade = extractCityFromAddress(address, uf) || undefined
+  }
+
   // Website — pode conter links de redes sociais
   const website = kg.website || kg.url || ''
   if (website) {
@@ -140,23 +178,26 @@ function parseKnowledgeGraph(kg, uf = null) {
 
 // Varre resultados orgânicos e local em busca de dados
 function parseResults({ organic = [], localResults = [], knowledgeGraph = null }, uf = null) {
-  const found = { instagram: null, facebook: null, email: null, phone: null }
+  const found = { cidade: null, instagram: null, facebook: null, email: null, phone: null }
 
   // Knowledge graph tem prioridade — dados mais confiáveis
   const kg = parseKnowledgeGraph(knowledgeGraph, uf)
+  if (kg.cidade)    found.cidade    = kg.cidade
   if (kg.instagram) found.instagram = kg.instagram
   if (kg.facebook)  found.facebook  = kg.facebook
   if (kg.email)     found.email     = kg.email
   if (kg.phone)     found.phone     = kg.phone
 
-  // Resultados locais (Google Maps inline) — geralmente têm telefone
+  // Resultados locais (Google Maps inline) — geralmente têm endereço completo
   for (const local of localResults) {
+    const address = local.address || local.formattedAddress || ''
+    if (!found.cidade && address && uf) found.cidade = extractCityFromAddress(address, uf)
     const localText = JSON.stringify(local)
     if (!found.phone)     found.phone     = extractPhone(localText, uf)
     if (!found.email)     found.email     = extractEmail(localText)
     if (!found.instagram) found.instagram = extractInstagram(localText)
     if (!found.facebook)  found.facebook  = extractFacebook(localText)
-    if (found.phone && found.email && found.instagram && found.facebook) break
+    if (found.cidade && found.phone && found.email && found.instagram && found.facebook) break
   }
 
   // Resultados orgânicos
@@ -172,8 +213,9 @@ function parseResults({ organic = [], localResults = [], knowledgeGraph = null }
     if (!found.facebook)  found.facebook  = extractFacebook(texts)
     if (!found.email)     found.email     = extractEmail(texts)
     if (!found.phone)     found.phone     = extractPhone(texts, uf)
+    if (!found.cidade && uf) found.cidade = extractCityFromAddress(texts, uf)
 
-    if (found.instagram && found.facebook && found.email && found.phone) break
+    if (found.cidade && found.instagram && found.facebook && found.email && found.phone) break
   }
 
   return found
@@ -203,6 +245,7 @@ export async function enrichClient(client) {
   const [generalRes, igRes, fbRes] = await Promise.allSettled(searches)
 
   // Agrega dados de todas as fontes
+  let cidade    = client.cidade    || null
   let instagram = client.instagram || null
   let facebook  = client.facebook  || null
   let email     = client.email     || null
@@ -213,6 +256,7 @@ export async function enrichClient(client) {
   // ── Resultado geral ──────────────────────────────────────────────────────────
   if (generalRes.status === 'fulfilled' && generalRes.value) {
     const g = parseResults(generalRes.value, uf)
+    if (!cidade)    cidade    = g.cidade
     if (!instagram) instagram = g.instagram
     if (!facebook)  facebook  = g.facebook
     if (!email)     email     = g.email
@@ -220,15 +264,14 @@ export async function enrichClient(client) {
   }
 
   // ── Resultado Instagram (site:instagram.com) ─────────────────────────────────
-  // O 1º resultado orgânico costuma SER a URL do perfil — extraímos direto do link
   if (!instagram && igRes.status === 'fulfilled' && igRes.value) {
     const firstLink = igRes.value.organic?.[0]?.link || ''
     if (firstLink.includes('instagram.com')) {
       instagram = extractInstagram(firstLink)
     }
-    if (!instagram) {
-      instagram = parseResults(igRes.value, uf).instagram
-    }
+    const igParsed = parseResults(igRes.value, uf)
+    if (!instagram) instagram = igParsed.instagram
+    if (!cidade)    cidade    = igParsed.cidade
   }
 
   // ── Resultado Facebook (site:facebook.com) ───────────────────────────────────
@@ -252,6 +295,7 @@ export async function enrichClient(client) {
     // Knowledge graph do resultado de Facebook
     if (fbRes.value.knowledgeGraph) {
       const kg = parseKnowledgeGraph(fbRes.value.knowledgeGraph, uf)
+      if (!cidade)   cidade   = kg.cidade   || null
       if (!phone)    phone    = kg.phone    || null
       if (!email)    email    = kg.email    || null
       if (!facebook) facebook = kg.facebook || null
@@ -261,6 +305,7 @@ export async function enrichClient(client) {
   // ── Monta resultado final (só campos realmente ausentes no cliente) ───────────
   const result = {}
 
+  if (cidade    && !client.cidade)    result.cidade    = cidade
   if (instagram && !client.instagram) result.instagram = instagram
   if (facebook  && !client.facebook)  result.facebook  = facebook
   if (email     && !client.email)     result.email     = email
