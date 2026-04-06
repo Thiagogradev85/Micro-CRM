@@ -39,3 +39,4 @@ gh release create v1.4.0 --title "v1.4.0 — Título" --notes "## O que mudou
 | `v1.4.0` | AppError + useAppModalError, fix timezone relatório diário |
 | `v1.5.0` | Deduplicação de clientes, prospecção, melhorias de UX |
 | `v1.5.1` | CNPJ e flag "Já é cliente", filtros de atenção por UF/dias, remoção de eventos do relatório diário, fix import Excel |
+| `v1.5.2` | Flag "Catálogo Enviado", enriquecimento de dados (lotes + por cliente), Excel melhorado, sort por último contato, WhatsApp para telefone fixo |
