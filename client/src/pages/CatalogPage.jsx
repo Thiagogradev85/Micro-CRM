@@ -224,7 +224,11 @@ function ProductForm({ initial = {}, onSave, onCancel }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="sm:col-span-2">
           <label className="label">Tipo *</label>
-          {txt('tipo', 'Ex: patinete, bicicleta, scooter...')}
+          <select className="input" value={form.tipo || ''} onChange={e => set('tipo', e.target.value)} required>
+            <option value="">Selecione o tipo...</option>
+            <option value="Bike Elétrica">Bike Elétrica</option>
+            <option value="Patinete Elétrico">Patinete Elétrico</option>
+          </select>
         </div>
         <div><label className="label">Modelo</label>{txt('modelo')}</div>
         <div>
