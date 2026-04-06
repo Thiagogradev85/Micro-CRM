@@ -221,6 +221,22 @@ function parseResults({ organic = [], localResults = [], knowledgeGraph = null }
   return found
 }
 
+/**
+ * Verifica se um handle de Instagram/Facebook é plausível para o nome do cliente.
+ * Normaliza ambos removendo acentos, espaços e símbolos, depois checa se
+ * pelo menos uma palavra significativa do nome (>2 chars) aparece no handle.
+ * Ex: "Bike Speck" → partes ["bike","speck"] → handle "bikespeck" ✓
+ */
+function nameMatchesHandle(clientName, handle) {
+  if (!clientName || !handle) return false
+  const norm = s => s.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+  const parts = clientName.split(/\s+/).map(norm).filter(p => p.length > 2)
+  const h = norm(handle)
+  return parts.some(p => h.includes(p))
+}
+
 // ── Enriquecedor principal ────────────────────────────────────────────────────
 
 /**
@@ -233,13 +249,17 @@ function parseResults({ organic = [], localResults = [], knowledgeGraph = null }
  * @returns {{ instagram?, facebook?, email?, whatsapp?, telefone? }}
  */
 export async function enrichClient(client) {
-  const base = [client.nome, client.cidade, client.uf].filter(Boolean).join(' ')
+  const base        = [client.nome, client.cidade, client.uf].filter(Boolean).join(' ')
+  const quotedName  = `"${client.nome}"` // aspas para busca exata
+  const baseQuoted  = [quotedName, client.cidade, client.uf].filter(Boolean).join(' ')
 
   // Determina quais buscas ainda fazem sentido para este cliente
   const searches = [
     searchWeb(`${base} contato telefone email whatsapp`),
-    client.instagram ? Promise.resolve(null) : searchWeb(`${base} site:instagram.com`),
-    client.facebook  ? Promise.resolve(null) : searchWeb(`${base} site:facebook.com`),
+    // Instagram: usa nome entre aspas para resultado mais preciso
+    client.instagram ? Promise.resolve(null) : searchWeb(`${baseQuoted} site:instagram.com`),
+    // Facebook: idem
+    client.facebook  ? Promise.resolve(null) : searchWeb(`${baseQuoted} site:facebook.com`),
   ]
 
   const [generalRes, igRes, fbRes] = await Promise.allSettled(searches)
@@ -265,21 +285,45 @@ export async function enrichClient(client) {
 
   // ── Resultado Instagram (site:instagram.com) ─────────────────────────────────
   if (!instagram && igRes.status === 'fulfilled' && igRes.value) {
-    const firstLink = igRes.value.organic?.[0]?.link || ''
-    if (firstLink.includes('instagram.com')) {
-      instagram = extractInstagram(firstLink)
+    const igOrganic = igRes.value.organic || []
+
+    // Passa 1: procura handle que corresponde ao nome do cliente (mais confiável)
+    for (const r of igOrganic) {
+      if (!r.link?.includes('instagram.com')) continue
+      const handle = extractInstagram(r.link)
+      if (handle && nameMatchesHandle(client.nome, handle)) {
+        instagram = handle
+        break
+      }
     }
-    const igParsed = parseResults(igRes.value, uf)
-    if (!instagram) instagram = igParsed.instagram
-    if (!cidade)    cidade    = igParsed.cidade
+
+    // Passa 2: aceita o primeiro link de instagram.com mesmo sem correspondência de nome
+    if (!instagram) {
+      for (const r of igOrganic) {
+        if (!r.link?.includes('instagram.com')) continue
+        const handle = extractInstagram(r.link)
+        if (handle) { instagram = handle; break }
+      }
+    }
+
+    // Passa 3: fallback geral (snippet/title)
+    if (!instagram) instagram = parseResults(igRes.value, uf).instagram
+    if (!cidade)    cidade    = parseResults(igRes.value, uf).cidade
   }
 
   // ── Resultado Facebook (site:facebook.com) ───────────────────────────────────
-  // O 1º resultado orgânico é a página — seu link e snippet trazem telefone e email
   if (fbRes.status === 'fulfilled' && fbRes.value) {
     const fbOrganic = fbRes.value.organic || []
 
-    // Extrai Facebook slug direto do primeiro link
+    // Passa 1: slug com correspondência de nome
+    if (!facebook) {
+      for (const r of fbOrganic) {
+        if (!r.link?.includes('facebook.com')) continue
+        const slug = extractFacebook(r.link)
+        if (slug && nameMatchesHandle(client.nome, slug)) { facebook = slug; break }
+      }
+    }
+    // Passa 2: primeiro link de facebook.com
     if (!facebook && fbOrganic[0]?.link) {
       facebook = extractFacebook(fbOrganic[0].link)
     }
