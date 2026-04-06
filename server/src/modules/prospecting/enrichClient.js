@@ -41,7 +41,46 @@ function extractEmail(text) {
   return email
 }
 
-function extractPhone(text) {
+// DDDs válidos por UF — usado para validar se o telefone encontrado bate com o estado do cliente
+const UF_DDDS = {
+  AC: ['68'],
+  AL: ['82'],
+  AM: ['92', '97'],
+  AP: ['96'],
+  BA: ['71', '73', '74', '75', '77'],
+  CE: ['85', '88'],
+  DF: ['61'],
+  ES: ['27', '28'],
+  GO: ['62', '64'],
+  MA: ['98', '99'],
+  MG: ['31', '32', '33', '34', '35', '37', '38'],
+  MS: ['67'],
+  MT: ['65', '66'],
+  PA: ['91', '93', '94'],
+  PB: ['83'],
+  PE: ['81', '87'],
+  PI: ['86', '89'],
+  PR: ['41', '42', '43', '44', '45', '46'],
+  RJ: ['21', '22', '24'],
+  RN: ['84'],
+  RO: ['69'],
+  RR: ['95'],
+  RS: ['51', '53', '54', '55'],
+  SC: ['47', '48', '49'],
+  SE: ['79'],
+  SP: ['11', '12', '13', '14', '15', '16', '17', '18', '19'],
+  TO: ['63'],
+}
+
+function dddMatchesUF(digits, uf) {
+  if (!uf) return true  // sem UF cadastrada, aceita qualquer DDD
+  const validDDDs = UF_DDDS[uf.toUpperCase()]
+  if (!validDDDs) return true  // UF desconhecida, não rejeita
+  const ddd = digits.slice(0, 2)
+  return validDDDs.includes(ddd)
+}
+
+function extractPhone(text, uf = null) {
   // Formatos brasileiros: (DD) 9xxxx-xxxx | DD 9xxxx-xxxx | +55 DD xxx | DDD sem parênteses
   const matches = text.match(
     /(?:\+?55[\s.-]?)?(?:\(?\d{2}\)?[\s.-]?)(?:9[\s.-]?\d{4}|\d{4})[\s.-]?\d{4}/g
@@ -49,13 +88,15 @@ function extractPhone(text) {
   if (!matches) return null
   for (const raw of matches) {
     const digits = raw.replace(/\D/g, '').replace(/^55/, '')
-    if (digits.length === 10 || digits.length === 11) return digits
+    if ((digits.length === 10 || digits.length === 11) && dddMatchesUF(digits, uf)) {
+      return digits
+    }
   }
   return null
 }
 
 // Extrai dados do knowledgeGraph do Serper (painel de conhecimento do Google)
-function parseKnowledgeGraph(kg) {
+function parseKnowledgeGraph(kg, uf = null) {
   if (!kg) return {}
   const result = {}
 
@@ -63,7 +104,9 @@ function parseKnowledgeGraph(kg) {
   const phone = kg.phoneNumber || kg.phone || ''
   if (phone) {
     const digits = phone.replace(/\D/g, '').replace(/^55/, '')
-    if (digits.length === 10 || digits.length === 11) result.phone = digits
+    if ((digits.length === 10 || digits.length === 11) && dddMatchesUF(digits, uf)) {
+      result.phone = digits
+    }
   }
 
   // Email direto
@@ -90,17 +133,17 @@ function parseKnowledgeGraph(kg) {
   if (!result.instagram) result.instagram = extractInstagram(kgText) || undefined
   if (!result.facebook)  result.facebook  = extractFacebook(kgText)  || undefined
   if (!result.email)     result.email     = extractEmail(kgText)     || undefined
-  if (!result.phone)     result.phone     = extractPhone(kgText)     || undefined
+  if (!result.phone)     result.phone     = extractPhone(kgText, uf) || undefined
 
   return result
 }
 
 // Varre resultados orgânicos e local em busca de dados
-function parseResults({ organic = [], localResults = [], knowledgeGraph = null }) {
+function parseResults({ organic = [], localResults = [], knowledgeGraph = null }, uf = null) {
   const found = { instagram: null, facebook: null, email: null, phone: null }
 
   // Knowledge graph tem prioridade — dados mais confiáveis
-  const kg = parseKnowledgeGraph(knowledgeGraph)
+  const kg = parseKnowledgeGraph(knowledgeGraph, uf)
   if (kg.instagram) found.instagram = kg.instagram
   if (kg.facebook)  found.facebook  = kg.facebook
   if (kg.email)     found.email     = kg.email
@@ -109,7 +152,7 @@ function parseResults({ organic = [], localResults = [], knowledgeGraph = null }
   // Resultados locais (Google Maps inline) — geralmente têm telefone
   for (const local of localResults) {
     const localText = JSON.stringify(local)
-    if (!found.phone)     found.phone     = extractPhone(localText)
+    if (!found.phone)     found.phone     = extractPhone(localText, uf)
     if (!found.email)     found.email     = extractEmail(localText)
     if (!found.instagram) found.instagram = extractInstagram(localText)
     if (!found.facebook)  found.facebook  = extractFacebook(localText)
@@ -128,7 +171,7 @@ function parseResults({ organic = [], localResults = [], knowledgeGraph = null }
     if (!found.instagram) found.instagram = extractInstagram(texts)
     if (!found.facebook)  found.facebook  = extractFacebook(texts)
     if (!found.email)     found.email     = extractEmail(texts)
-    if (!found.phone)     found.phone     = extractPhone(texts)
+    if (!found.phone)     found.phone     = extractPhone(texts, uf)
 
     if (found.instagram && found.facebook && found.email && found.phone) break
   }
@@ -165,9 +208,11 @@ export async function enrichClient(client) {
   let email     = client.email     || null
   let phone     = null
 
+  const uf = client.uf || null
+
   // ── Resultado geral ──────────────────────────────────────────────────────────
   if (generalRes.status === 'fulfilled' && generalRes.value) {
-    const g = parseResults(generalRes.value)
+    const g = parseResults(generalRes.value, uf)
     if (!instagram) instagram = g.instagram
     if (!facebook)  facebook  = g.facebook
     if (!email)     email     = g.email
@@ -182,7 +227,7 @@ export async function enrichClient(client) {
       instagram = extractInstagram(firstLink)
     }
     if (!instagram) {
-      instagram = parseResults(igRes.value).instagram
+      instagram = parseResults(igRes.value, uf).instagram
     }
   }
 
@@ -199,14 +244,14 @@ export async function enrichClient(client) {
     // Snippet da página do Facebook frequentemente contém telefone e email
     for (const r of fbOrganic.slice(0, 5)) {
       const text = [r.link, r.title, r.snippet].filter(Boolean).join(' ')
-      if (!phone) phone = extractPhone(text)
+      if (!phone) phone = extractPhone(text, uf)
       if (!email) email = extractEmail(text)
       if (phone && email) break
     }
 
     // Knowledge graph do resultado de Facebook
     if (fbRes.value.knowledgeGraph) {
-      const kg = parseKnowledgeGraph(fbRes.value.knowledgeGraph)
+      const kg = parseKnowledgeGraph(fbRes.value.knowledgeGraph, uf)
       if (!phone)    phone    = kg.phone    || null
       if (!email)    email    = kg.email    || null
       if (!facebook) facebook = kg.facebook || null
