@@ -80,7 +80,7 @@ export function whatsappLink(raw) {
   if (!raw) return null
   const digits = String(raw).replace(/\D/g, '')
   if (!digits) return null
-  if (!isCelular(digits)) return null   // telefone fixo → sem link WhatsApp
+  // WhatsApp aceita fixos e celulares — sempre gera o link
   const number = digits.length <= 11 ? `55${digits}` : digits
   return `https://wa.me/${number}`
 }

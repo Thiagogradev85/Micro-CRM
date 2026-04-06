@@ -86,13 +86,8 @@ export async function enrichClient(client) {
   if (facebook  && !client.facebook)  result.facebook  = facebook
   if (email     && !client.email)     result.email     = email
 
-  if (phone && phone.length === 11 && phone[2] === '9' && !client.whatsapp) {
-    result.whatsapp = phone
-  } else if (phone && phone.length === 10 && !client.telefone) {
-    result.telefone = phone
-  } else if (phone && !client.whatsapp && !client.telefone) {
-    result.whatsapp = phone
-  }
+  // WhatsApp aceita fixos e celulares — sempre salva como whatsapp se não tiver
+  if (phone && !client.whatsapp) result.whatsapp = phone
 
   return result
 }

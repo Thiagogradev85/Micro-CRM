@@ -29,14 +29,12 @@ function detectSocial(url) {
 }
 
 /**
- * Returns a WhatsApp wa.me link for a Brazilian mobile number (11 digits with DDD).
- * Returns null if the number does not look like a mobile.
+ * Returns a WhatsApp wa.me link for a Brazilian number (mobile or landline).
+ * WhatsApp now supports landlines, so always generate the link.
  */
 function buildWhatsappLink(digits) {
   if (!digits) return null
-  // Brazilian mobile: 11 digits starting with 9 after DDD (2 digits)
-  const isMobile = digits.length === 11 && digits[2] === '9'
-  return isMobile ? `https://wa.me/55${digits}` : null
+  return `https://wa.me/55${digits}`
 }
 
 /**
