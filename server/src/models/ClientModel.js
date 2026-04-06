@@ -215,6 +215,9 @@ export const ClientModel = {
     const updated = rows[0]
     if (!updated) return null
 
+    // Rastreia se o evento catalog_requested já foi disparado via mudança de status
+    let catalogEventFired = false
+
     // Busca nomes dos status para comparar
     if (status_id && previous && previous.status_id !== status_id) {
       const { rows: statusRows } = await db.query(
@@ -246,12 +249,13 @@ export const ClientModel = {
         await db.query(
           `UPDATE clients SET catalogo_enviado = true WHERE id = $1`, [id]
         )
+        catalogEventFired = true
       }
     }
 
-    // Flag catalogo_enviado ativada manualmente (sem mudar status para Catálogo)
-    // → registra evento no relatório diário
-    if (catalogo_enviado === true && !previous?.catalogo_enviado) {
+    // Flag catalogo_enviado ativada manualmente — só dispara se o evento
+    // ainda não foi registrado via mudança de status nesta mesma operação
+    if (catalogo_enviado === true && !previous?.catalogo_enviado && !catalogEventFired) {
       await db.query(
         `INSERT INTO daily_report_events (client_id, event_type, event_date)
          VALUES ($1, 'catalog_requested', (NOW() AT TIME ZONE 'America/Sao_Paulo')::date)
