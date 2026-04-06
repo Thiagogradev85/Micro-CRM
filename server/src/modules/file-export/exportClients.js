@@ -33,7 +33,8 @@ export async function toExcel(clients) {
     },
   })
 
-  ws.columns = PRINT_COLS.map(({ label, key, width }) => ({ header: label, key, width }))
+  // Define largura inicial com base no label; será expandida após popular os dados
+  ws.columns = PRINT_COLS.map(({ label, key }) => ({ header: label, key, width: label.length + 2 }))
 
   // Cabeçalho — cinza escuro discreto, fácil de imprimir
   const headerRow = ws.getRow(1)
@@ -71,6 +72,20 @@ export async function toExcel(clients) {
       cell.border    = { top: gridBorder, left: gridBorder, bottom: gridBorder, right: gridBorder }
     })
     row.height = 16
+  })
+
+  // Ajusta largura de cada coluna ao maior conteúdo (label ou dados)
+  ws.columns.forEach((col, i) => {
+    const key = PRINT_COLS[i].key
+    const label = PRINT_COLS[i].label
+    const maxDataLen = clients.reduce((max, c) => {
+      let val = ''
+      if (key === 'cidade_uf') val = [c.cidade, c.uf].filter(Boolean).join(' / ')
+      else if (key === 'nota') val = NOTA_LABEL[c.nota] ?? ''
+      else val = String(c[key] ?? '')
+      return Math.max(max, val.length)
+    }, 0)
+    col.width = Math.min(Math.max(label.length + 2, maxDataLen + 2), 60)
   })
 
   ws.autoFilter = { from: 'A1', to: { row: 1, column: PRINT_COLS.length } }
