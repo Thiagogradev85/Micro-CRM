@@ -84,14 +84,16 @@ Acesse: **http://localhost:5173**
 
 Central de gerenciamento de prospects e clientes. Exibe todos os contatos agrupados por estado (UF) ou em lista plana.
 
-- **Busca e filtros**: por nome/cidade, estado, status, nota, ativos/inativos, prospects/clientes
-- **Visualização Por Estado**: cada UF aparece como aba recolhível; clique para expandir
+- **Busca e filtros**: por nome/cidade, estado, status, nota, ativos/inativos, prospects/clientes, catálogo enviado
+- **Visualização Por Estado**: cada UF aparece como aba recolhível; clique para expandir (permanecem abertas ao ordenar)
 - **Visualização Lista**: tabela paginada com ordenação por nome
-- **Seção Atenção**: destaca automaticamente clientes sem contato há mais de N dias (configurável). UFs podem ser ocultadas da seção individualmente
+- **Seção Atenção**: destaca clientes sem contato há mais de N dias (configurável). UFs ocultáveis individualmente
 - **Seção Novos**: clientes cadastrados hoje aparecem em destaque no topo
-- **Ações rápidas**: marcar como Contatado, ver detalhes, inativar ou excluir
-- **Importar CSV/Excel**: importação em lote de clientes
-- **Exportar**: exporta a lista filtrada atual
+- **Ordenação por último contato**: clique na coluna "Últ. Contato" para colocar clientes sem data no topo
+- **Flag "Catálogo Enviado"**: histórico permanente de quem já recebeu catálogo, com badge rosa e filtro
+- **Ações rápidas**: marcar como Contatado, ver detalhes, enriquecer dados (✨), inativar ou excluir
+- **Importar Excel**: importação em lote de clientes
+- **Exportar**: Excel (6 colunas, paisagem A4) ou PDF com filtros aplicados
 - **Duplicatas**: escaneia o banco e agrupa registros similares por nome e telefone para limpeza
 
 ### Detalhe do Cliente
@@ -118,22 +120,26 @@ Busca empresas no **Google Maps** e cadastra novos prospects automaticamente.
 
 Módulo dedicado acessível pelo menu lateral em **Enriquecimento**. Permite buscar dados de contato faltantes para clientes já existentes na base.
 
-**Duas formas de uso:**
+**Três formas de uso:**
 
 1. **Após prospecção** — ao salvar novos prospects, o modal de enriquecimento abre automaticamente
 2. **Módulo avulso** (`/enrich`) — selecione clientes existentes por UF, status ou busca por nome e enriqueça em lote
+3. **Por cliente individual** — ícone ✨ em cada linha da tabela de Clientes abre o modal somente para aquele cliente
 
-**Filtros disponíveis na página:**
+**Filtros disponíveis na página `/enrich`:**
 - Busca por nome ou cidade
 - Estado (UF) — seleciona toda a UF com um clique
 - Status do cliente
 - Campos faltando: "Sem Instagram", "Sem WhatsApp", "Sem E-mail", "Sem Facebook"
 
-**Como funciona:**
-- Busca no Google via **Serper Web Search** por nome + cidade do cliente
-- Extrai Instagram, Facebook, e-mail e telefone via parsing de URLs e regex
-- Suporta lotes de 20 clientes com barra de progresso quando há mais
-- O usuário revisa cada campo por cliente e decide o que salvar — nenhum dado é salvo automaticamente
+**Como funciona (3 buscas paralelas por cliente):**
+- `[nome] [cidade] contato telefone` — dados gerais, knowledge graph do Google
+- `[nome] [cidade] site:instagram.com` — o 1º resultado geralmente é o perfil direto
+- `[nome] [cidade] site:facebook.com` — extrai slug, telefone e e-mail da página
+- O usuário revisa cada campo sugerido com checkboxes — nenhum dado é salvo automaticamente
+- Suporta lotes de 20 clientes com barra de progresso
+
+> **Custo Serper:** até 3 créditos por cliente (queries são puladas se o campo já existe). Plano free: 2.500/mês.
 
 ### Produtos
 
