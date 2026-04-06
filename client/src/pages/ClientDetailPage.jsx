@@ -442,8 +442,9 @@ export function ClientDetailPage() {
               {client.telefone && (
                 <div>
                   <p className="label">Telefone Fixo</p>
-                  <a href={`tel:${client.telefone}`}
-                    className="text-zinc-300 hover:text-zinc-100 flex items-center gap-1">
+                  <a href={whatsappLink(client.telefone)}
+                    target="_blank" rel="noreferrer"
+                    className="text-green-400 hover:text-green-300 flex items-center gap-1">
                     <Phone size={13} /> {client.telefone}
                   </a>
                 </div>
