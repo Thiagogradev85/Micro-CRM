@@ -249,6 +249,17 @@ export const ClientModel = {
       }
     }
 
+    // Flag catalogo_enviado ativada manualmente (sem mudar status para Catálogo)
+    // → registra evento no relatório diário
+    if (catalogo_enviado === true && !previous?.catalogo_enviado) {
+      await db.query(
+        `INSERT INTO daily_report_events (client_id, event_type, event_date)
+         VALUES ($1, 'catalog_requested', (NOW() AT TIME ZONE 'America/Sao_Paulo')::date)
+         ON CONFLICT DO NOTHING`,
+        [id]
+      )
+    }
+
     return updated
   },
 
