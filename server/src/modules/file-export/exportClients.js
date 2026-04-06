@@ -42,8 +42,10 @@ export async function toExcel(clients) {
     cell.font      = { bold: true, color: { argb: 'FF1A1A1A' }, size: 11, name: 'Arial' }
     cell.alignment = { vertical: 'middle', horizontal: 'center' }
     cell.border    = {
+      top:    { style: 'medium', color: { argb: 'FF888888' } },
+      left:   { style: 'medium', color: { argb: 'FF888888' } },
       bottom: { style: 'medium', color: { argb: 'FF888888' } },
-      top:    { style: 'thin',   color: { argb: 'FF888888' } },
+      right:  { style: 'medium', color: { argb: 'FF888888' } },
     }
   })
   headerRow.height = 20
@@ -61,11 +63,12 @@ export async function toExcel(clients) {
 
     // Linhas alternadas: branco / cinza muito claro — econômico para impressão
     const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF5F5F5'
+    const gridBorder = { style: 'thin', color: { argb: 'FFAAAAAA' } }
     row.eachCell({ includeEmpty: true }, cell => {
       cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } }
       cell.font      = { size: 10, color: { argb: 'FF1A1A1A' }, name: 'Arial' }
       cell.alignment = { vertical: 'middle' }
-      cell.border    = { bottom: { style: 'thin', color: { argb: 'FFDDDDDD' } } }
+      cell.border    = { top: gridBorder, left: gridBorder, bottom: gridBorder, right: gridBorder }
     })
     row.height = 16
   })
