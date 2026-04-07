@@ -29,7 +29,14 @@ function readFileFromRequest(req) {
 export const ClientController = {
   async listUFs(req, res, next) {
     try {
-      const data = await ClientModel.listUFs()
+      const { status_id, ativo, ja_cliente, catalogo_enviado, search } = req.query
+      const data = await ClientModel.listUFs({
+        status_id:        status_id        ? parseInt(status_id) : undefined,
+        ativo:            ativo            !== undefined && ativo            !== '' ? ativo            === 'true' : undefined,
+        ja_cliente:       ja_cliente       !== undefined && ja_cliente       !== '' ? ja_cliente       === 'true' : undefined,
+        catalogo_enviado: catalogo_enviado !== undefined && catalogo_enviado !== '' ? catalogo_enviado === 'true' : undefined,
+        search,
+      })
       res.json(data)
     } catch (err) {
       next(err)

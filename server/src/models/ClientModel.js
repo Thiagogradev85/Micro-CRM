@@ -1,15 +1,49 @@
 import db from '../db/db.js'
 
 export const ClientModel = {
-  // Retorna lista de UFs cadastradas com contagem de clientes ativos
-  async listUFs() {
+  // Retorna lista de UFs com contagem, respeitando os mesmos filtros do list()
+  async listUFs({ status_id, ativo, ja_cliente, catalogo_enviado, search } = {}) {
+    const conditions = []
+    const params = []
+
+    if (status_id) {
+      params.push(status_id)
+      conditions.push(`c.status_id = $${params.length}`)
+    }
+    if (ativo !== undefined) {
+      params.push(ativo)
+      conditions.push(`c.ativo = $${params.length}`)
+    }
+    if (ja_cliente !== undefined) {
+      params.push(ja_cliente)
+      conditions.push(`c.ja_cliente = $${params.length}`)
+    }
+    if (catalogo_enviado !== undefined) {
+      params.push(catalogo_enviado)
+      conditions.push(`c.catalogo_enviado = $${params.length}`)
+    }
+    if (search) {
+      const words = search.trim().split(/\s+/).filter(Boolean)
+      for (const word of words) {
+        const n = params.length + 1
+        params.push(`%${word}%`)
+        conditions.push(`(
+          unaccent(c.nome)      ILIKE unaccent($${n}) OR
+          unaccent(c.cidade)    ILIKE unaccent($${n}) OR
+          c.whatsapp            ILIKE $${n}           OR
+          unaccent(c.instagram) ILIKE unaccent($${n})
+        )`)
+      }
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
     const { rows } = await db.query(`
-      SELECT COALESCE(uf, '—') AS uf, COUNT(*)::int AS count
-      FROM clients
-      WHERE ativo = true
-      GROUP BY uf
-      ORDER BY uf NULLS LAST
-    `)
+      SELECT COALESCE(c.uf, '—') AS uf, COUNT(*)::int AS count
+      FROM clients c
+      ${where}
+      GROUP BY c.uf
+      ORDER BY c.uf NULLS LAST
+    `, params)
     return rows
   },
 

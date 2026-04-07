@@ -25,6 +25,27 @@ import { OverdueReminderModal } from '../components/OverdueReminderModal.jsx'
 import { DuplicatesModal } from '../components/DuplicatesModal.jsx'
 import { EnrichModal } from '../components/EnrichModal.jsx'
 
+// Input de busca isolado — digitar aqui não re-renderiza o ClientsPage
+const SearchInput = memo(function SearchInput({ initialValue, onSearch }) {
+  const [value, setValue] = useState(initialValue)
+  const timer = useRef(null)
+  return (
+    <div className="relative flex-1 min-w-[180px]">
+      <Search size={14} className="absolute left-2.5 top-2.5 text-zinc-500" />
+      <input
+        className="input pl-8"
+        placeholder="Buscar nome, cidade..."
+        value={value}
+        onChange={e => {
+          setValue(e.target.value)
+          clearTimeout(timer.current)
+          timer.current = setTimeout(() => onSearch(e.target.value), 300)
+        }}
+      />
+    </div>
+  )
+})
+
 function isCreatedToday(dateStr) {
   if (!dateStr) return false
   const today = new Date().toLocaleDateString('en-CA') // data local do usuário
@@ -182,8 +203,19 @@ const ClientRow = memo(function ClientRow({ c, alreadyContacted, isAttention, on
   )
 })
 
+const PAGE_SIZE = 50
+
 const UFSection = memo(function UFSection({ uf, count, rows, tableHead, contactedToday, rowProps, isOpen, onToggle, loadingRows }) {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const displayCount = count ?? rows?.length
+
+  // Resetar paginação interna ao fechar ou ao trocar rows
+  useEffect(() => { if (!isOpen) setVisibleCount(PAGE_SIZE) }, [isOpen])
+  useEffect(() => { setVisibleCount(PAGE_SIZE) }, [rows])
+
+  const visibleRows = rows ? rows.slice(0, visibleCount) : null
+  const hasMore     = rows ? rows.length > visibleCount : false
+
   return (
     <div className="table-wrapper">
       <button
@@ -205,15 +237,25 @@ const UFSection = memo(function UFSection({ uf, count, rows, tableHead, contacte
           ? <div className="flex items-center justify-center py-6 text-zinc-500 text-sm gap-2">
               <Loader2 size={15} className="animate-spin" /> Carregando...
             </div>
-          : rows?.length > 0
-            ? <table className="table">
-                {tableHead}
-                <tbody>
-                  {rows.map(c => (
-                    <ClientRow key={c.id} c={c} alreadyContacted={contactedToday.has(c.id)} {...rowProps} />
-                  ))}
-                </tbody>
-              </table>
+          : visibleRows?.length > 0
+            ? <>
+                <table className="table">
+                  {tableHead}
+                  <tbody>
+                    {visibleRows.map(c => (
+                      <ClientRow key={c.id} c={c} alreadyContacted={contactedToday.has(c.id)} {...rowProps} />
+                    ))}
+                  </tbody>
+                </table>
+                {hasMore && (
+                  <button
+                    className="w-full py-2 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
+                    onClick={e => { e.stopPropagation(); setVisibleCount(v => v + PAGE_SIZE) }}
+                  >
+                    Ver mais ({rows.length - visibleCount} restantes)
+                  </button>
+                )}
+              </>
             : <div className="py-4 text-center text-zinc-600 text-sm">Nenhum cliente</div>
       )}
     </div>
@@ -229,11 +271,9 @@ export function ClientsPage() {
   const [ufCache, setUfCache]             = useState(new Map()) // uf → {data, loading}
   const [overdueSection, setOverdueSection] = useState([]) // para seção Atenção no lazy mode
   const [newSection, setNewSection]         = useState([]) // para seção Novos no lazy mode
-  // Debounce search
-  const [searchValue, setSearchValue] = useState(() => {
-    try { return JSON.parse(sessionStorage.getItem(FILTERS_KEY))?.search || '' } catch { return '' }
-  })
-  const searchTimer = useRef(null)
+  // Chave para resetar o SearchInput ao limpar filtros
+  const [searchKey, setSearchKey] = useState(0)
+  const handleSearch = useCallback((val) => setFilter('search', val), [])
   const [statuses, setStatuses] = useState([])
   const [loading, setLoading]     = useState(false)
   const [importing, setImporting] = useState(false)
@@ -276,7 +316,7 @@ export function ClientsPage() {
       const next = new Map(prev)
       const opening = !next.get(uf)
       next.set(uf, opening)
-      if (opening && isLazyMode) loadUF(uf)
+      if (opening && isStateView) loadUF(uf)
       return next
     })
   }
@@ -293,10 +333,13 @@ export function ClientsPage() {
     () => savedFilters() || { search: '', status_id: '', uf: '', ativo: '', ja_cliente: '', catalogo_enviado: '', page: 1 }
   )
 
-  // Lazy mode: state view sem nenhum filtro ativo (incluindo UF)
-  const isLazyMode = viewMode === 'state'
-    && !filters.search && !filters.status_id && !filters.ativo
-    && !filters.ja_cliente && !filters.catalogo_enviado && !filters.uf
+  // State view sempre usa lazy-por-UF. List view usa paginação real.
+  const isStateView = viewMode === 'state'
+
+  // Filtros aplicáveis ao /clients/ufs e ao lazy load por UF
+  const activeFilters = useMemo(() => Object.fromEntries(
+    Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'page')
+  ), [filters])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -309,40 +352,41 @@ export function ClientsPage() {
       setContactedToday(new Set(details.details.contacted.map(c => c.client_id)))
       setOverdueSection(overdueData)
 
-      if (isLazyMode) {
-        // Carrega apenas UFs + contagem + seção Novos
+      if (isStateView) {
+        // State view: sempre lazy — carrega só UFs + contagem + seção Novos
+        const filterParams = Object.fromEntries(
+          Object.entries(activeFilters).filter(([k]) => k !== 'uf')
+        )
         const [ufData, newData] = await Promise.all([
-          api.listClientUFs(),
+          api.listClientUFs(Object.keys(filterParams).length ? filterParams : undefined),
           api.listClients({ sort: 'created_at_desc', limit: 100 }),
         ])
-        setUfSummary(ufData)
-        setTotal(ufData.reduce((s, r) => s + r.count, 0))
+        // Se filtro de UF ativo, restringe a lista de seções
+        const filtered = activeFilters.uf
+          ? ufData.filter(r => r.uf === activeFilters.uf)
+          : ufData
+        setUfSummary(filtered)
+        setTotal(filtered.reduce((s, r) => s + r.count, 0))
         setNewSection(newData.data.filter(c => isCreatedToday(c.created_at)))
-        setUfCache(new Map()) // invalida cache de UFs ao recarregar
+        setUfCache(new Map()) // invalida cache ao mudar filtros
         setClients([])
       } else {
-        // Com filtros ou list view: carrega clientes normalmente
-        const base = Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== ''))
+        // List view: paginação real no backend
         let listSort = 'created_at'
-        if (viewMode === 'list') {
-          if (contactSort === 'asc')       listSort = 'contato_asc'
-          else if (contactSort === 'desc') listSort = 'contato_desc'
-          else if (nameSort === 'asc')     listSort = 'nome_asc'
-          else                             listSort = 'nome_desc'
-        }
-        const params = viewMode === 'list'
-          ? { ...base, limit: 50, page: filters.page || 1, sort: listSort }
-          : { ...base, sort: 'uf', limit: 9999, page: 1 }
-        const result = await api.listClients(params)
+        if (contactSort === 'asc')       listSort = 'contato_asc'
+        else if (contactSort === 'desc') listSort = 'contato_desc'
+        else if (nameSort === 'asc')     listSort = 'nome_asc'
+        else                             listSort = 'nome_desc'
+        const result = await api.listClients({ ...activeFilters, limit: 50, page: filters.page || 1, sort: listSort })
         setClients(result.data)
         setTotal(result.total)
       }
     } finally {
       setLoading(false)
     }
-  }, [filters, viewMode, isLazyMode, attentionDays, nameSort, contactSort])
+  }, [filters, activeFilters, isStateView, attentionDays, nameSort, contactSort])
 
-  // Carrega clientes de uma UF específica no lazy mode (com cache)
+  // Carrega clientes de uma UF com os filtros ativos (com cache)
   const loadUF = useCallback(async (uf) => {
     setUfCache(prev => {
       if (prev.get(uf)?.data || prev.get(uf)?.loading) return prev
@@ -351,7 +395,7 @@ export function ClientsPage() {
       return next
     })
     try {
-      const result = await api.listClients({ uf, limit: 9999 })
+      const result = await api.listClients({ ...activeFilters, uf, limit: 9999 })
       setUfCache(prev => {
         const next = new Map(prev)
         next.set(uf, { data: result.data, loading: false })
@@ -364,7 +408,7 @@ export function ClientsPage() {
         return next
       })
     }
-  }, [])
+  }, [activeFilters])
 
   useEffect(() => {
     api.listStatuses().then(setStatuses)
@@ -560,7 +604,7 @@ export function ClientsPage() {
 
   function clearFilters() {
     setFilters(EMPTY_FILTERS)
-    setSearchValue('')
+    setSearchKey(k => k + 1) // força remount do SearchInput com valor vazio
     sessionStorage.removeItem(FILTERS_KEY)
   }
 
@@ -740,13 +784,11 @@ export function ClientsPage() {
 
   // ── Render modo "Por Estado" ────────────────────────────────────────────────
   function renderStateView() {
-    if (isLazyMode) {
-      // ── Modo lazy: sem filtros ativos ──────────────────────────────────────
-      if (!loading && ufSummary.length === 0 && overdueSection.length === 0 && newSection.length === 0)
-        return <EmptyState icon={Search} message="Nenhum cliente encontrado" />
+    if (!loading && ufSummary.length === 0 && overdueSection.length === 0 && newSection.length === 0)
+      return <EmptyState icon={Search} message="Nenhum cliente encontrado" />
 
-      return (
-        <div className="space-y-6">
+    return (
+      <div className="space-y-6">
           {renderAttentionSection(attentionOpen, setAttentionOpen, overdueSection)}
 
           {newSection.length > 0 && (
@@ -798,64 +840,6 @@ export function ClientsPage() {
               />
             )
           })}
-        </div>
-      )
-    }
-
-    // ── Modo full load: com filtros ativos ────────────────────────────────────
-    const newClients    = clients.filter(c => isCreatedToday(c.created_at))
-    const allOverdue    = clients.filter(c => isOverdue(c, attentionDays))
-    const grouped       = groupByUF(clients)
-    const sortedUFs     = Object.keys(grouped).sort((a, b) => a.localeCompare(b))
-
-    if (newClients.length === 0 && allOverdue.length === 0 && sortedUFs.length === 0)
-      return <EmptyState icon={Search} message="Nenhum cliente encontrado" />
-
-    return (
-      <div className="space-y-6">
-        {renderAttentionSection(attentionOpen, setAttentionOpen, overdueSection)}
-
-        {newClients.length > 0 && (
-          <div className="table-wrapper">
-            <button
-              className="w-full flex items-center gap-2 px-4 py-2 bg-emerald-950 border-b border-emerald-800 hover:bg-emerald-900/60 transition-colors text-left"
-              onClick={() => setNewClientsOpen(v => !v)}
-            >
-              <Sparkles size={14} className="text-emerald-400" />
-              <span className="font-semibold text-emerald-300 text-sm">Novos</span>
-              <span className="text-emerald-600 text-xs">
-                {newClients.length} cliente{newClients.length !== 1 ? 's' : ''} cadastrado{newClients.length !== 1 ? 's' : ''} hoje
-              </span>
-              {newClientsOpen
-                ? <ChevronUp size={14} className="ml-auto text-emerald-700" />
-                : <ChevronDown size={14} className="ml-auto text-emerald-700" />
-              }
-            </button>
-            {newClientsOpen && (
-              <table className="table">
-                {tableHead}
-                <tbody>
-                  {sortClients(newClients).map(c => (
-                    <ClientRow key={c.id} c={c} alreadyContacted={contactedToday.has(c.id)} {...rowProps} />
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-
-        {sortedUFs.map(uf => (
-          <UFSection
-            key={uf}
-            uf={uf}
-            rows={sortClients(grouped[uf])}
-            tableHead={tableHead}
-            contactedToday={contactedToday}
-            rowProps={rowProps}
-            isOpen={isUFOpen(uf, sortedUFs.length)}
-            onToggle={() => toggleUF(uf)}
-          />
-        ))}
       </div>
     )
   }
@@ -1017,20 +1001,11 @@ export function ClientsPage() {
 
       {/* Filtros + toggle de view */}
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search size={14} className="absolute left-2.5 top-2.5 text-zinc-500" />
-          <input
-            className="input pl-8"
-            placeholder="Buscar nome, cidade..."
-            value={searchValue}
-            onChange={e => {
-              const val = e.target.value
-              setSearchValue(val)
-              clearTimeout(searchTimer.current)
-              searchTimer.current = setTimeout(() => setFilter('search', val), 300)
-            }}
-          />
-        </div>
+        <SearchInput
+          key={searchKey}
+          initialValue={filters.search}
+          onSearch={handleSearch}
+        />
         <select
           className="select w-auto"
           value={filters.uf}

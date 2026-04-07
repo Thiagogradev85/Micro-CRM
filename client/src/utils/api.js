@@ -76,7 +76,10 @@ export const api = {
     const qs = params ? '?' + new URLSearchParams(params).toString() : ''
     return request('GET', `/clients${qs}`)
   },
-  listClientUFs:  ()       => request('GET',    '/clients/ufs'),
+  listClientUFs:  (params) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : ''
+    return request('GET', `/clients/ufs${qs}`)
+  },
   getClient:      (id)     => request('GET',    `/clients/${id}`),
   createClient:   (data)   => request('POST',   '/clients', data),
   updateClient:   (id, d)  => request('PUT',    `/clients/${id}`, d),
