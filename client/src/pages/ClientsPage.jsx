@@ -416,6 +416,17 @@ export function ClientsPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Auto-load das UFs que abrem automaticamente (filtro de UF ativo ou só 1 seção)
+  useEffect(() => {
+    if (!isStateView || ufSummary.length === 0) return
+    ufSummary.forEach(({ uf }) => {
+      if (isUFOpen(uf, ufSummary.length)) {
+        loadUF(uf)
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ufSummary])
+
   async function handleContact(client) {
     try {
       await api.updateClient(client.id, { status_id: statuses.find(s => s.nome === 'Contatado')?.id })

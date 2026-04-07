@@ -16,12 +16,12 @@ export function WhatsAppProgressBar() {
   const fetchProgress = useCallback(async () => {
     try {
       const data = await api.whatsappProgress()
-      if (!data || data.status === 'idle') return
-
+      if (!data || data.status === 'idle') {
+        setJob(null)
+        return
+      }
       setJob(data)
       if (!dismissed) setVisible(true)
-
-      // Stop polling once done and user hasn't dismissed yet
     } catch {
       // backend offline or no job — ignore silently
     }
@@ -29,9 +29,16 @@ export function WhatsAppProgressBar() {
 
   useEffect(() => {
     fetchProgress()
+    // Só continua polling enquanto há job ativo (job não-nulo)
+    // O intervalo é recriado apenas quando dismissed muda
     const id = setInterval(fetchProgress, POLL_MS)
     return () => clearInterval(id)
   }, [fetchProgress])
+
+  // Para o polling assim que o job termina e é descartado
+  useEffect(() => {
+    if (!job) setVisible(false)
+  }, [job])
 
   async function handleDismiss() {
     setVisible(false)
