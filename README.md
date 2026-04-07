@@ -85,13 +85,15 @@ Acesse: **http://localhost:5173**
 Central de gerenciamento de prospects e clientes. Exibe todos os contatos agrupados por estado (UF) ou em lista plana.
 
 - **Busca e filtros**: por nome/cidade, estado, status, nota, ativos/inativos, prospects/clientes, catálogo enviado
-- **Visualização Por Estado**: cada UF aparece como aba recolhível; clique para expandir (permanecem abertas ao ordenar)
-- **Visualização Lista**: tabela paginada com ordenação por nome
+- **Visualização Por Estado**: cada UF carrega clientes sob demanda (lazy load) — só busca os dados ao abrir a aba. Cache por sessão
+- **Visualização Lista**: paginação real no backend (50/página), ordenação por nome ou último contato
 - **Seção Atenção**: destaca clientes sem contato há mais de N dias (configurável). UFs ocultáveis individualmente
 - **Seção Novos**: clientes cadastrados hoje aparecem em destaque no topo
 - **Ordenação por último contato**: clique na coluna "Últ. Contato" para colocar clientes sem data no topo
 - **Flag "Catálogo Enviado"**: histórico permanente de quem já recebeu catálogo, com badge rosa e filtro
 - **Ações rápidas**: marcar como Contatado, ver detalhes, enriquecer dados (✨), inativar ou excluir
+- **Abrir cliente em nova aba**: clique no nome ou no ícone de olho — abre em nova janela, múltiplos clientes simultâneos
+- **Sincronização entre abas**: ao salvar um cliente, a lista principal atualiza automaticamente via BroadcastChannel
 - **Importar Excel**: importação em lote de clientes
 - **Exportar**: Excel (6 colunas, paisagem A4) ou PDF com filtros aplicados
 - **Duplicatas**: escaneia o banco e agrupa registros similares por nome e telefone para limpeza
@@ -101,6 +103,7 @@ Central de gerenciamento de prospects e clientes. Exibe todos os contatos agrupa
 Página completa do cliente com histórico e ações:
 
 - Edição de todos os dados: nome, cidade, UF, WhatsApp, Instagram, e-mail, site, status, nota
+- **Proteção contra conflito de edição**: se outra aba salvar o mesmo cliente entre a abertura e o salvamento, o sistema avisa e oferece opção de forçar ou descartar
 - **Observações**: histórico de anotações com data e hora
 - **Botão Instagram**: abre input específico para registrar observação vinda do Instagram
 - Links diretos para WhatsApp (wa.me) e Instagram
@@ -132,14 +135,16 @@ Módulo dedicado acessível pelo menu lateral em **Enriquecimento**. Permite bus
 - Status do cliente
 - Campos faltando: "Sem Instagram", "Sem WhatsApp", "Sem E-mail", "Sem Facebook"
 
-**Como funciona (3 buscas paralelas por cliente):**
-- `[nome] [cidade] contato telefone` — dados gerais, knowledge graph do Google
-- `[nome] [cidade] site:instagram.com` — o 1º resultado geralmente é o perfil direto
-- `[nome] [cidade] site:facebook.com` — extrai slug, telefone e e-mail da página
+**Como funciona (4 buscas paralelas por cliente):**
+- `[nome] [cidade] contato telefone email whatsapp` — dados gerais, knowledge graph do Google
+- `"[nome]" [cidade] site:instagram.com` — perfil direto; fallback sem cidade se necessário
+- `"[nome]" [cidade] site:facebook.com` — extrai slug, telefone, e-mail e Instagram dos snippets e sitelinks
+- `"[nome]" email contato` — busca dedicada de e-mail (nova em v1.6.0)
+- Captura menções explícitas como `"Instagram: @handle"` nos snippets do Facebook
 - O usuário revisa cada campo sugerido com checkboxes — nenhum dado é salvo automaticamente
 - Suporta lotes de 20 clientes com barra de progresso
 
-> **Custo Serper:** até 3 créditos por cliente (queries são puladas se o campo já existe). Plano free: 2.500/mês.
+> **Custo Serper:** até 4 créditos por cliente (queries são puladas se o campo já existe). Plano free: 2.500/mês.
 
 ### Produtos
 

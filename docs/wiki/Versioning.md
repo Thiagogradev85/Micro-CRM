@@ -40,3 +40,4 @@ gh release create v1.4.0 --title "v1.4.0 — Título" --notes "## O que mudou
 | `v1.5.0` | Deduplicação de clientes, prospecção, melhorias de UX |
 | `v1.5.1` | CNPJ e flag "Já é cliente", filtros de atenção por UF/dias, remoção de eventos do relatório diário, fix import Excel |
 | `v1.5.2` | Flag "Catálogo Enviado", enriquecimento de dados (lotes + por cliente), Excel melhorado, sort por último contato, WhatsApp para telefone fixo |
+| `v1.6.0` | Multi-abas (clientes abrem em nova janela), proteção contra conflito de edição, lazy load por UF, paginação real no backend, enriquecimento com 4ª busca (email), extração de Instagram via mentions |
