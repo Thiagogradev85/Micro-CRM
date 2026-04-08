@@ -401,15 +401,21 @@ export async function enrichClient(client) {
 
   // ── Valida cidade contra a lista oficial de municípios do IBGE ──────────────
   // Descarta se não for um município real do estado (ex: "Sesc", "SIM", "Shopping")
+  let cidadeNaoValidada = false
   if (cidade && !client.cidade && uf) {
-    const valid = await validateCity(cidade, uf)
-    if (!valid) cidade = null
+    const { valid, unavailable } = await validateCity(cidade, uf)
+    if (!valid) {
+      cidade = null
+    } else if (unavailable) {
+      cidadeNaoValidada = true // IBGE fora do ar — cidade passa mas será sinalizada
+    }
   }
 
   // ── Monta resultado final (só campos realmente ausentes no cliente) ───────────
   const result = {}
 
   if (cidade    && !client.cidade)    result.cidade    = cidade
+  if (cidadeNaoValidada && result.cidade) result._cidadeNaoValidada = true
   if (instagram && !client.instagram) result.instagram = instagram
   if (facebook  && !client.facebook)  result.facebook  = facebook
   if (email     && !client.email)     result.email     = email

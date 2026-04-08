@@ -42,12 +42,15 @@ async function fetchMunicipios(uf) {
 
 /**
  * Verifica se `city` é um município válido do estado `uf`.
- * Retorna `true` se válido ou se o IBGE estiver indisponível.
- * Retorna `false` se o município claramente não existe no estado.
+ *
+ * Retorna:
+ *   { valid: true }                        — município confirmado pelo IBGE
+ *   { valid: false }                       — não existe no estado, descartar
+ *   { valid: true, unavailable: true }     — IBGE fora do ar, deixar passar mas sinalizar
  */
 export async function validateCity(city, uf) {
-  if (!city || !uf) return false
+  if (!city || !uf) return { valid: false }
   const municipios = await fetchMunicipios(uf.toUpperCase())
-  if (!municipios) return true // IBGE fora do ar — deixa passar
-  return municipios.has(normalize(city))
+  if (!municipios) return { valid: true, unavailable: true }
+  return { valid: municipios.has(normalize(city)) }
 }

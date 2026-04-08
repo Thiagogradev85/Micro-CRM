@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Sparkles, Phone, Instagram, Mail, Facebook, X, Check, Loader2, AlertTriangle, MapPin } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Sparkles, Phone, Instagram, Mail, Facebook, X, Check, Loader2, AlertTriangle, MapPin, WifiOff } from 'lucide-react'
 import { api } from '../utils/api.js'
 
 const FIELD_META = {
@@ -34,6 +34,14 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
   // selected[id][field] = true/false
   const [selected, setSelected]   = useState({})
   const [saveError, setSaveError] = useState(null)
+  const [ibgeWarning, setIbgeWarning] = useState(false)
+
+  // Auto-dismiss do aviso de IBGE após 5s
+  useEffect(() => {
+    if (!ibgeWarning) return
+    const t = setTimeout(() => setIbgeWarning(false), 5000)
+    return () => clearTimeout(t)
+  }, [ibgeWarning])
 
   const totalBatches = Math.ceil(clientIds.length / BATCH_SIZE)
 
@@ -55,17 +63,21 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
       }
     }
 
-    // Pre-seleciona todos os campos encontrados
+    // Pre-seleciona todos os campos encontrados (ignora campos meta que começam com _)
     const sel = {}
+    let hasIbgeWarning = false
     for (const r of allResults) {
       sel[r.id] = {}
       for (const field of Object.keys(r.suggestions || {})) {
+        if (field.startsWith('_')) continue
         sel[r.id][field] = true
       }
+      if (r.suggestions?._cidadeNaoValidada) hasIbgeWarning = true
     }
 
     setResults(allResults)
     setSelected(sel)
+    if (hasIbgeWarning) setIbgeWarning(true)
     setPhase('review')
   }
 
@@ -77,7 +89,7 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
   }
 
   function toggleAll(clientId, value) {
-    const fields = Object.keys(results.find(r => r.id === clientId)?.suggestions || {})
+    const fields = Object.keys(results.find(r => r.id === clientId)?.suggestions || {}).filter(f => !f.startsWith('_'))
     setSelected(prev => ({
       ...prev,
       [clientId]: Object.fromEntries(fields.map(f => [f, value])),
@@ -111,7 +123,18 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative">
+
+        {/* Toast — API do IBGE indisponível */}
+        {ibgeWarning && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-amber-950 border border-amber-600/60 text-amber-300 text-xs font-medium px-4 py-2 rounded-full shadow-lg animate-fade-in whitespace-nowrap">
+            <WifiOff size={13} />
+            API do IBGE indisponível — cidade não verificada
+            <button onClick={() => setIbgeWarning(false)} className="ml-1 text-amber-500 hover:text-amber-300">
+              <X size={11} />
+            </button>
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-800">
@@ -178,7 +201,8 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
               )}
 
               {results.map(r => {
-                const fields = Object.entries(r.suggestions || {})
+                // Filtra campos meta (começam com _) da exibição
+                const fields = Object.entries(r.suggestions || {}).filter(([f]) => !f.startsWith('_'))
                 if (fields.length === 0 && !r.error) return null
 
                 const allChecked = fields.every(([f]) => selected[r.id]?.[f])
@@ -204,16 +228,17 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
                     )}
 
                     {fields.map(([field, value]) => {
-                      const meta    = FIELD_META[field] || {}
-                      const Icon    = meta.icon || Phone
-                      const checked = selected[r.id]?.[field] ?? true
+                      const meta        = FIELD_META[field] || {}
+                      const Icon        = meta.icon || Phone
+                      const checked     = selected[r.id]?.[field] ?? true
+                      const cidadeAlert = field === 'cidade' && r.suggestions?._cidadeNaoValidada
 
                       return (
                         <label
                           key={field}
                           className={`flex items-center gap-3 cursor-pointer rounded-lg px-3 py-2 transition-colors ${
                             checked ? 'bg-zinc-700/60' : 'opacity-50'
-                          }`}
+                          } ${cidadeAlert ? 'border border-red-500/60' : ''}`}
                         >
                           <input
                             type="checkbox"
@@ -221,9 +246,10 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
                             onChange={() => toggleField(r.id, field)}
                             className="accent-amber-400"
                           />
-                          <Icon size={14} className={meta.color || 'text-zinc-400'} />
+                          <Icon size={14} className={cidadeAlert ? 'text-red-400' : (meta.color || 'text-zinc-400')} />
                           <span className="text-xs text-zinc-400 w-20 shrink-0">{meta.label}</span>
-                          <span className="text-sm text-zinc-200 break-all">{value}</span>
+                          <span className={`text-sm break-all ${cidadeAlert ? 'text-red-300' : 'text-zinc-200'}`}>{value}</span>
+                          {cidadeAlert && <AlertTriangle size={12} className="text-red-400 shrink-0 ml-auto" />}
                         </label>
                       )
                     })}
