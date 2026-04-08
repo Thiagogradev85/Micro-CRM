@@ -18,7 +18,15 @@ function extractInstagram(text) {
     if (!IG_BLOCKED.has(handle.toLowerCase())) return handle
   }
 
-  // Prioridade 2: menção explícita com @ (comum em snippets do Facebook/Google)
+  // Prioridade 2: padrão de título do Google para páginas Instagram
+  // Ex: "Bike Shop (@bikeshop) • Instagram" | "(@bikeshop) • Instagram photos"
+  const parenMatch = text.match(/\(@?([A-Za-z0-9_.]{3,30})\)\s*[•·]?\s*(?:•\s*)?instagram/i)
+  if (parenMatch) {
+    const handle = parenMatch[1]
+    if (!IG_BLOCKED.has(handle.toLowerCase())) return handle
+  }
+
+  // Prioridade 3: menção explícita com @ (comum em snippets do Facebook/Google)
   // Exige @ para evitar falsos positivos com palavras portuguesas após "instagram"
   // Ex: "Instagram: @bikeloja" | "IG: @bikeshop" | "instagram @conta_loja"
   const mentionMatch = text.match(/(?:instagram|ig)\s*[:\s]*@([A-Za-z0-9_.]{3,30})/i)
@@ -305,17 +313,24 @@ export async function enrichClient(client) {
   if (!instagram && igRes.status === 'fulfilled' && igRes.value) {
     const igOrganic = igRes.value.organic || []
 
-    // Passa 1: procura handle que corresponde ao nome do cliente (mais confiável)
+    // Passa 1a: URL do link com correspondência de nome
     for (const r of igOrganic) {
       if (!r.link?.includes('instagram.com')) continue
       const handle = extractInstagram(r.link)
-      if (handle && nameMatchesHandle(client.nome, handle)) {
-        instagram = handle
-        break
+      if (handle && nameMatchesHandle(client.nome, handle)) { instagram = handle; break }
+    }
+
+    // Passa 1b: título/snippet com correspondência de nome
+    // Google retorna títulos como "Bike Shop (@bikeshop) • Instagram photos"
+    if (!instagram) {
+      for (const r of igOrganic.slice(0, 10)) {
+        const text = [r.title, r.snippet].filter(Boolean).join(' ')
+        const handle = extractInstagram(text)
+        if (handle && nameMatchesHandle(client.nome, handle)) { instagram = handle; break }
       }
     }
 
-    // Passa 2: aceita o primeiro link de instagram.com mesmo sem correspondência de nome
+    // Passa 2a: primeiro link de instagram.com mesmo sem correspondência de nome
     if (!instagram) {
       for (const r of igOrganic) {
         if (!r.link?.includes('instagram.com')) continue
@@ -324,7 +339,16 @@ export async function enrichClient(client) {
       }
     }
 
-    // Passa 3: fallback geral (snippet/title)
+    // Passa 2b: primeiro título/snippet com handle válido
+    if (!instagram) {
+      for (const r of igOrganic.slice(0, 5)) {
+        const text = [r.title, r.snippet].filter(Boolean).join(' ')
+        const handle = extractInstagram(text)
+        if (handle) { instagram = handle; break }
+      }
+    }
+
+    // Passa 3: fallback geral (JSON completo do resultado)
     if (!instagram) instagram = parseResults(igRes.value, uf).instagram
     if (!cidade)    cidade    = parseResults(igRes.value, uf).cidade
   }
@@ -390,10 +414,19 @@ export async function enrichClient(client) {
     try {
       const igFallback = await searchWeb(`${client.nome} site:instagram.com`)
       if (igFallback?.organic?.length) {
+        // Tenta link primeiro
         for (const r of igFallback.organic) {
           if (!r.link?.includes('instagram.com')) continue
           const handle = extractInstagram(r.link)
           if (handle) { instagram = handle; break }
+        }
+        // Tenta título/snippet (padrão "(@handle) • Instagram")
+        if (!instagram) {
+          for (const r of igFallback.organic.slice(0, 5)) {
+            const text = [r.title, r.snippet].filter(Boolean).join(' ')
+            const handle = extractInstagram(text)
+            if (handle) { instagram = handle; break }
+          }
         }
       }
     } catch { /* falha silenciosa — não bloqueia */ }
