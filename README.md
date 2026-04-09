@@ -49,11 +49,32 @@ NODE_ENV=development
 |---------------------|-------------|----------|------------|
 | `DATABASE_URL`      | ✅ | Tudo | [neon.tech](https://neon.tech) → New Project → Connection String |
 | `SERPER_API_KEY`    | ✅ | Prospecção + Enriquecimento | [serper.dev](https://serper.dev) → Dashboard → API Key |
+| `SERPAPI_KEY`       | Recomendado | Fallback quando Serper esgota | [serpapi.com](https://serpapi.com) → Dashboard → API Key (100/mês grátis) |
 | `ANTHROPIC_API_KEY` | Opcional | Só para importar catálogo por PDF | [console.anthropic.com](https://console.anthropic.com) → API Keys |
 | `PORT`              | — | — | Padrão: `8000` |
 
 > **Atenção:** o módulo de **Enriquecimento de Dados** usa apenas a `SERPER_API_KEY` — sem necessidade de chave Anthropic.
 > A `ANTHROPIC_API_KEY` só é exigida se você quiser importar catálogos de produtos a partir de arquivos PDF.
+
+---
+
+### Como obter a chave SerpApi (fallback gratuito)
+
+O SerpApi assume automaticamente quando os créditos do Serper acabam — **sem necessidade de intervenção manual**.
+
+1. Acesse [serpapi.com](https://serpapi.com)
+2. Clique em **Register** (canto superior direito)
+3. Preencha nome, e-mail e senha → clique **Sign Up**
+4. Confirme o e-mail (verifique a caixa de entrada)
+5. Após confirmar, você cai no **Dashboard**
+6. Sua chave aparece no topo: **"Your Private API Key"**
+7. Copie a chave e adicione ao `server/.env`:
+   ```env
+   SERPAPI_KEY=sua_chave_aqui
+   ```
+
+> Quando os créditos do Serper estiverem esgotados, o sistema exibe um aviso na tela de Enriquecimento
+> com a data prevista de renovação e indica se o SerpApi está ativo como fallback.
 
 ### 3. Criar as tabelas no banco
 

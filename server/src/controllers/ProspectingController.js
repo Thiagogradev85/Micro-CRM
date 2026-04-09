@@ -1,4 +1,4 @@
-import { searchPlaces }   from '../modules/prospecting/serper.js'
+import { searchPlaces, getSerperLimitStatus } from '../modules/prospecting/serper.js'
 import { parseAddress, parsePhone } from '../modules/prospecting/addressParser.js'
 import { filterExisting }  from '../modules/prospecting/deduplication.js'
 import { enrichClient }    from '../modules/prospecting/enrichClient.js'
@@ -291,7 +291,16 @@ export const ProspectingController = {
         }
       }
 
-      res.json({ results })
+      const response = { results }
+      const limitStatus = getSerperLimitStatus()
+      if (limitStatus) {
+        response.serperLimit = {
+          ...limitStatus,
+          cseAvailable: !!process.env.SERPAPI_KEY,
+        }
+      }
+
+      res.json(response)
     } catch (err) {
       next(err)
     }

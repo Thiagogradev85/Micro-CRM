@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Sparkles, Phone, Instagram, Mail, Facebook, X, Check, Loader2, AlertTriangle, MapPin, WifiOff } from 'lucide-react'
 import { api } from '../utils/api.js'
+import { SerperLimitModal } from './SerperLimitModal.jsx'
 
 const FIELD_META = {
   cidade:    { label: 'Cidade',    icon: MapPin,      color: 'text-amber-400' },
@@ -35,6 +36,7 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
   const [selected, setSelected]   = useState({})
   const [saveError, setSaveError] = useState(null)
   const [ibgeWarning, setIbgeWarning] = useState(false)
+  const [serperLimit, setSerperLimit] = useState(null)  // { hitAt, resetDate } | null
 
   // Auto-dismiss do aviso de IBGE após 5s
   useEffect(() => {
@@ -55,8 +57,9 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
     for (let i = 0; i < batches.length; i++) {
       setBatchProgress({ current: i + 1, total: batches.length })
       try {
-        const { results: res } = await api.enrichProspects(batches[i])
-        allResults.push(...res)
+        const data = await api.enrichProspects(batches[i])
+        allResults.push(...(data.results || []))
+        if (data.serperLimit) setSerperLimit(data.serperLimit)
       } catch (err) {
         // Registra erro do lote mas continua os demais
         allResults.push(...batches[i].map(id => ({ id, nome: null, suggestions: {}, error: err.message })))
@@ -122,7 +125,15 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+    <>
+    {serperLimit && (
+      <SerperLimitModal
+        resetDate={serperLimit.resetDate}
+        cseAvailable={serperLimit.cseAvailable}
+        onClose={() => setSerperLimit(null)}
+      />
+    )}
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/60">
       <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative">
 
         {/* Toast — API do IBGE indisponível */}
@@ -300,5 +311,6 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
         </div>
       </div>
     </div>
+    </>
   )
 }
