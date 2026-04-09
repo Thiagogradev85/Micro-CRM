@@ -577,15 +577,30 @@ export function ClientsPage() {
     try {
       const result = await api.importClients(file)
       const parts = []
-      if (result.imported > 0) parts.push(`${result.imported} novo${result.imported !== 1 ? 's' : ''}`)
+      if (result.imported > 0) parts.push(`${result.imported} importado${result.imported !== 1 ? 's' : ''}`)
       if (result.updated  > 0) parts.push(`${result.updated} atualizado${result.updated  !== 1 ? 's' : ''}`)
       if (result.skipped  > 0) parts.push(`${result.skipped} ignorado${result.skipped   !== 1 ? 's' : ''}`)
-      const hasErrors = result.errors?.length > 0
+
+      const rejected = result.rejected || []
+      const dbErrors = result.errors   || []
+
+      // Monta detalhes de linhas rejeitadas para mostrar ao usuário
+      const details = []
+      if (rejected.length > 0) {
+        details.push(`⚠️ ${rejected.length} linha${rejected.length !== 1 ? 's' : ''} ignorada${rejected.length !== 1 ? 's' : ''}:`)
+        rejected.slice(0, 10).forEach(r => details.push(`  Linha ${r.linha}: "${r.valor}" — ${r.motivo}`))
+        if (rejected.length > 10) details.push(`  ... e mais ${rejected.length - 10} linhas`)
+      }
+      if (dbErrors.length > 0) {
+        details.push(`❌ ${dbErrors.length} erro(s) ao salvar`)
+      }
+
+      const hasProblems = rejected.length > 0 || dbErrors.length > 0
       showModal({
-        type: hasErrors && result.imported === 0 ? 'error' : 'success',
+        type: hasProblems && result.imported === 0 ? 'error' : 'success',
         title: 'Importação concluída',
-        message: parts.length ? `Importação concluída: ${parts.join(' · ')}` : 'Nenhum registro importado.',
-        details: hasErrors ? [`${result.errors.length} registro(s) com erro — verifique o arquivo`] : undefined,
+        message: parts.length ? parts.join(' · ') : 'Nenhum registro importado.',
+        details: details.length > 0 ? details : undefined,
       })
       load()
     } catch (err) {

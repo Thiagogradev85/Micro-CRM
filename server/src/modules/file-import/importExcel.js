@@ -115,9 +115,62 @@ function extractInstagram(value) {
   return null
 }
 
+// Verifica se uma string é um nome de pessoa/empresa válido
+// Deve ter ao menos uma letra — rejeita strings que são só telefone/número
+function isValidName(value) {
+  if (!value) return false
+  return /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(value)
+}
+
+// Tenta detectar automaticamente qual coluna contém nomes de empresas/pessoas
+// analisando o conteúdo das células (não só o cabeçalho)
+// Retorna o índice da coluna com maior proporção de valores texto válidos
+function detectNomeColumn(headers, dataRows) {
+  // 1. Tenta pelo cabeçalho primeiro
+  const byHeader = findCol(headers, 'nome', 'name', 'loja', 'empresa', 'cliente',
+    'fantasia', 'razao', 'razão', 'estabelecimento', 'razao social', 'nome fantasia')
+  if (byHeader >= 0) return byHeader
+
+  // 2. Analisa conteúdo das colunas — a coluna nome deve ter:
+  //    - maioria de valores com letras
+  //    - poucos valores que parecem telefone ou UF
+  const sample = dataRows.slice(0, 30)
+  const colCount = Math.max(...sample.map(r => r.length))
+  let bestCol = -1
+  let bestScore = 0
+
+  for (let col = 0; col < colCount; col++) {
+    const values = sample.map(r => String(r[col] || '').trim()).filter(Boolean)
+    if (values.length === 0) continue
+
+    let score = 0
+    for (const v of values) {
+      const hasLetter   = /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(v)
+      const isPhone     = /^[\d\s\(\)\-\+\.]{7,}$/.test(v)
+      const isUF        = KNOWN_UFS.has(v.toUpperCase()) && v.length === 2
+      const isUrl       = v.startsWith('http') || v.includes('www.')
+      const isInstagram = v.startsWith('@') || v.includes('instagram')
+
+      if (hasLetter && !isPhone && !isUF && !isUrl && !isInstagram) score++
+      if (isPhone || isUF || isUrl || isInstagram) score -= 2
+    }
+    // Prefere colunas mais à esquerda (nome tende a ser primeira coluna)
+    const posBonus = (colCount - col) * 0.1
+    const finalScore = score + posBonus
+
+    if (finalScore > bestScore) {
+      bestScore = finalScore
+      bestCol = col
+    }
+  }
+
+  return bestCol
+}
+
 export async function importExcel(fileOrBuffer) {
   const workbook = XLSX.read(fileOrBuffer, { type: 'buffer' })
-  const records = []
+  const records  = []
+  const rejected = []  // linhas rejeitadas com motivo
 
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName]
@@ -149,21 +202,33 @@ export async function importExcel(fileOrBuffer) {
       }
     }
 
-    const headers = rows[headerRowIdx]
+    const headers  = rows[headerRowIdx]
+    const dataRows = rows.slice(headerRowIdx + 1).filter(r => !r.every(c => !String(c).trim()))
 
-    const iNome      = findCol(headers, 'nome', 'name', 'loja', 'empresa', 'cliente', 'fantasia', 'razao', 'razão', 'estabelecimento', 'razao social', 'nome fantasia')
+    // Detecta coluna nome — pelo cabeçalho ou pelo conteúdo
+    const iNome      = detectNomeColumn(headers, dataRows)
     const iCidade    = findCol(headers, 'cidade', 'city', 'municipio', 'município', 'localidade')
     const iUF        = findCol(headers, 'uf', 'estado', 'state', 'estado/uf', 'uf/estado', 'sigla')
     const iWhatsapp  = findCol(headers, 'whatsapp', 'wpp', 'whats', 'celular', 'cel', 'telefone', 'fone', 'tel', 'phone', 'zap', 'contato', 'numero', 'número', 'mobile', 'movel', 'móvel')
     const iSite      = findCol(headers, 'site', 'website', 'url', 'www', 'homepage', 'web')
     const iInstagram = findCol(headers, 'instagram', 'ig', 'insta', '@', 'perfil', 'rede social', 'social', 'redes')
 
-    for (let i = headerRowIdx + 1; i < rows.length; i++) {
-      const row = rows[i]
-      if (row.every(cell => !String(cell).trim())) continue
+    for (let i = 0; i < dataRows.length; i++) {
+      const row     = dataRows[i]
+      const rowNum  = headerRowIdx + 2 + i  // número da linha no Excel (1-based + cabeçalho)
+      const rawNome = iNome >= 0 ? clean(row[iNome]) : null
 
-      const nome = iNome >= 0 ? clean(row[iNome]) : null
-      if (!nome) continue
+      // Nome ausente
+      if (!rawNome) {
+        rejected.push({ linha: rowNum, valor: String(row[iNome] ?? ''), motivo: 'Nome vazio ou ausente' })
+        continue
+      }
+
+      // Nome só com números/símbolos — provavelmente um telefone no lugar errado
+      if (!isValidName(rawNome)) {
+        rejected.push({ linha: rowNum, valor: rawNome, motivo: `Nome inválido — contém apenas números ("${rawNome}"). Verifique a coluna de nome no Excel.` })
+        continue
+      }
 
       let uf = iUF >= 0 ? extractUF(row[iUF]) : null
       if (!uf) {
@@ -173,7 +238,10 @@ export async function importExcel(fileOrBuffer) {
         }
       }
       if (!uf) uf = sheetUF
-      if (!uf) continue
+      if (!uf) {
+        rejected.push({ linha: rowNum, valor: rawNome, motivo: 'Estado (UF) não encontrado' })
+        continue
+      }
 
       let whatsapp = iWhatsapp >= 0 ? cleanPhone(row[iWhatsapp]) : null
       if (!whatsapp) {
@@ -192,15 +260,15 @@ export async function importExcel(fileOrBuffer) {
       }
 
       records.push({
-        nome,
+        nome:      rawNome,
         cidade:    iCidade >= 0 ? clean(row[iCidade]) : null,
         uf,
         whatsapp,
-        site:      iSite   >= 0 ? clean(row[iSite])   : null,
+        site:      iSite >= 0 ? clean(row[iSite]) : null,
         instagram,
       })
     }
   }
 
-  return records
+  return { records, rejected }
 }

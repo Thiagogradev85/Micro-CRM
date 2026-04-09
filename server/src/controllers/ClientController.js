@@ -192,9 +192,9 @@ export const ClientController = {
   async importExcel(req, res, next) {
     try {
       const fileBuffer = await readFileFromRequest(req)
-      const records = await importExcel(fileBuffer)
+      const { records, rejected } = await importExcel(fileBuffer)
       const result = await ClientModel.bulkUpsert(records)
-      res.json(result)
+      res.json({ ...result, rejected: rejected || [] })
     } catch (err) {
       next(err)
     }
