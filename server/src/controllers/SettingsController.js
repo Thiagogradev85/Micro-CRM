@@ -7,7 +7,20 @@ import {
 } from '../config/configService.js'
 import { AppError } from '../utils/AppError.js'
 
-/** POST /api/settings/auth — verifica senha */
+/** Helper: extrai mensagem de erro do body da resposta da API externa */
+async function apiErrorMessage(response) {
+  try {
+    const body = await response.json()
+    return body?.error?.message
+      || body?.message
+      || body?.error
+      || `HTTP ${response.status}`
+  } catch {
+    return `HTTP ${response.status}`
+  }
+}
+
+/** POST /settings/auth — verifica senha */
 export async function authSettings(req, res, next) {
   try {
     const { password } = req.body
@@ -20,7 +33,7 @@ export async function authSettings(req, res, next) {
   }
 }
 
-/** GET /api/settings — retorna todas as chaves (mascaradas) */
+/** GET /settings — retorna todas as chaves (mascaradas) */
 export async function getSettings(req, res, next) {
   try {
     const config = await getAllConfig()
@@ -30,7 +43,7 @@ export async function getSettings(req, res, next) {
   }
 }
 
-/** POST /api/settings — salva uma ou mais chaves */
+/** POST /settings — salva uma ou mais chaves */
 export async function saveSettings(req, res, next) {
   try {
     const { password, values } = req.body
@@ -41,7 +54,6 @@ export async function saveSettings(req, res, next) {
     if (!values || typeof values !== 'object') throw new AppError('Payload inválido.', 400)
 
     for (const [key, value] of Object.entries(values)) {
-      // Só permite salvar chaves gerenciadas ou a senha
       if (!MANAGED_KEYS.includes(key) && key !== 'SETTINGS_PASSWORD') continue
       await setConfig(key, value)
     }
@@ -52,7 +64,7 @@ export async function saveSettings(req, res, next) {
   }
 }
 
-/** POST /api/settings/test — testa uma chave específica (salva antes se value enviado) */
+/** POST /settings/test — testa uma chave específica (salva antes se value enviado) */
 export async function testSetting(req, res, next) {
   try {
     const { password, key, value } = req.body
@@ -60,53 +72,73 @@ export async function testSetting(req, res, next) {
     const ok = await verifySettingsPassword(password)
     if (!ok) throw new AppError('Senha incorreta.', 401)
 
-    // Se o valor foi enviado junto, salva antes de testar
+    // Se veio um valor novo, salva em process.env antes de testar
     if (value && MANAGED_KEYS.includes(key)) {
       await setConfig(key, value)
     }
 
     switch (key) {
+
       case 'DATABASE_URL': {
         await db.query('SELECT 1')
         return res.json({ ok: true, message: 'Conexão com banco OK.' })
       }
+
       case 'ANTHROPIC_API_KEY': {
         const apiKey = process.env.ANTHROPIC_API_KEY
-        if (!apiKey) return res.json({ ok: false, message: 'Chave não configurada.' })
-        const response = await fetch('https://api.anthropic.com/v1/models', {
-          headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        if (!apiKey) return res.json({ ok: false, message: 'Chave não configurada. Cole a chave e clique Testar novamente.' })
+        // Usa um request mínimo para validar a chave sem consumir créditos
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 1,
+            messages: [{ role: 'user', content: 'hi' }],
+          }),
         })
-        if (response.ok) return res.json({ ok: true, message: 'Chave Anthropic válida.' })
-        return res.json({ ok: false, message: `Anthropic retornou ${response.status}.` })
+        if (response.ok) return res.json({ ok: true, message: 'Chave Anthropic válida e com créditos.' })
+        const errMsg = await apiErrorMessage(response)
+        return res.json({ ok: false, message: `Anthropic: ${errMsg}` })
       }
+
       case 'SERPER_API_KEY': {
         const apiKey = process.env.SERPER_API_KEY
-        if (!apiKey) return res.json({ ok: false, message: 'Chave não configurada.' })
+        if (!apiKey) return res.json({ ok: false, message: 'Chave não configurada. Cole a chave e clique Testar novamente.' })
         const response = await fetch('https://google.serper.dev/search', {
           method: 'POST',
           headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ q: 'test', num: 1 }),
+          body: JSON.stringify({ q: 'test' }),
         })
         if (response.ok) return res.json({ ok: true, message: 'Chave Serper válida.' })
-        return res.json({ ok: false, message: `Serper retornou ${response.status}.` })
+        const errMsg = await apiErrorMessage(response)
+        return res.json({ ok: false, message: `Serper: ${errMsg}` })
       }
+
       case 'SERPAPI_KEY': {
         const apiKey = process.env.SERPAPI_KEY
         if (!apiKey) return res.json({ ok: false, message: 'Chave não configurada.' })
-        const url = `https://serpapi.com/account?api_key=${apiKey}`
-        const response = await fetch(url)
+        const response = await fetch(`https://serpapi.com/account?api_key=${apiKey}`)
         if (response.ok) return res.json({ ok: true, message: 'Chave SerpApi válida.' })
-        return res.json({ ok: false, message: `SerpApi retornou ${response.status}.` })
+        const errMsg = await apiErrorMessage(response)
+        return res.json({ ok: false, message: `SerpApi: ${errMsg}` })
       }
+
       case 'BRAVE_SEARCH_KEY': {
         const apiKey = process.env.BRAVE_SEARCH_KEY
         if (!apiKey) return res.json({ ok: false, message: 'Chave não configurada.' })
         const response = await fetch('https://api.search.brave.com/res/v1/web/search?q=test&count=1', {
-          headers: { 'Accept': 'application/json', 'X-Subscription-Token': apiKey },
+          headers: { Accept: 'application/json', 'X-Subscription-Token': apiKey },
         })
         if (response.ok) return res.json({ ok: true, message: 'Chave Brave Search válida.' })
-        return res.json({ ok: false, message: `Brave retornou ${response.status}.` })
+        const errMsg = await apiErrorMessage(response)
+        return res.json({ ok: false, message: `Brave: ${errMsg}` })
       }
+
       case 'BING_SEARCH_KEY': {
         const apiKey = process.env.BING_SEARCH_KEY
         if (!apiKey) return res.json({ ok: false, message: 'Chave não configurada.' })
@@ -114,17 +146,22 @@ export async function testSetting(req, res, next) {
           headers: { 'Ocp-Apim-Subscription-Key': apiKey },
         })
         if (response.ok) return res.json({ ok: true, message: 'Chave Bing válida.' })
-        return res.json({ ok: false, message: `Bing retornou ${response.status}.` })
+        const errMsg = await apiErrorMessage(response)
+        return res.json({ ok: false, message: `Bing: ${errMsg}` })
       }
+
       case 'GOOGLE_CSE_KEY': {
         const apiKey = process.env.GOOGLE_CSE_KEY
         const cx = process.env.GOOGLE_CSE_CX
-        if (!apiKey || !cx) return res.json({ ok: false, message: 'GOOGLE_CSE_KEY e GOOGLE_CSE_CX são obrigatórios.' })
+        if (!apiKey) return res.json({ ok: false, message: 'GOOGLE_CSE_KEY não configurada.' })
+        if (!cx)     return res.json({ ok: false, message: 'GOOGLE_CSE_CX não configurada.' })
         const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=test&num=1`
         const response = await fetch(url)
         if (response.ok) return res.json({ ok: true, message: 'Google CSE válido.' })
-        return res.json({ ok: false, message: `Google CSE retornou ${response.status}.` })
+        const errMsg = await apiErrorMessage(response)
+        return res.json({ ok: false, message: `Google CSE: ${errMsg}` })
       }
+
       default:
         return res.json({ ok: false, message: 'Teste não disponível para esta chave.' })
     }
