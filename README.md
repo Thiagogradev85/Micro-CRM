@@ -65,7 +65,18 @@ NODE_ENV=production
 Execute em ordem no Neon SQL Editor:
 
 ```
-server/migrations/001_*.sql  →  ...  →  server/migrations/011_multi_tenant.sql
+001_schema.sql
+002_add_tipo_to_products.sql
+003_add_fields_to_clients.sql
+004_fix_daily_report_timezone.sql
+005_not_null_constraints.sql
+006_overdue_index.sql
+007_add_cnpj_ja_cliente.sql
+008_add_catalogo_enviado.sql
+009_cleanup_instagram_false_positives.sql
+010_settings_table.sql
+011_multi_tenant.sql          ← cria tabela users + user_id nas tabelas principais
+012_seed_missing_user_statuses.sql  ← corrige constraint status + seed para usuários existentes
 ```
 
 ## Desenvolvimento local
@@ -82,9 +93,17 @@ Frontend: http://localhost:5173 (proxy `/api/*` → porta 8000)
 
 ## Deploy (Render)
 
-1. Build command: `cd client && npm install && npm run build && cd ../server && npm install`
-2. Start command: `node server/src/index.js`
-3. Configurar variáveis de ambiente no dashboard do Render
+Serviço único (backend serve o frontend buildado):
+
+1. **Build command**: `cd ../client && npm install && npm run build && cd ../server && npm install`
+2. **Start command**: `node src/index.js`
+3. **Root directory**: `server`
+4. Configurar as 5 variáveis de ambiente: `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NOME`
+5. Todas as rotas da API ficam em `/api/*` — o frontend usa esse prefixo automaticamente
+
+### Manter online (free tier)
+
+Configure o [UptimeRobot](https://uptimerobot.com) para pingar `https://seu-app.onrender.com/health` a cada **5 minutos** e o serviço nunca vai dormir.
 
 ---
 
