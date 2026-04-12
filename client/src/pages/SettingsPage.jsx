@@ -60,7 +60,7 @@ const GROUPS = [
       {
         key: 'GOOGLE_CSE_KEY',
         label: 'Google CSE Key',
-        description: 'Google Custom Search Engine — chave de API.',
+        description: 'Google Custom Search Engine — 100 buscas/dia grátis, mas exige cartão no Google Cloud mesmo no plano gratuito.',
         placeholder: 'AIzaSy...',
         testable: false,
       },
@@ -403,6 +403,7 @@ export function SettingsPage() {
         'GOOGLE_CSE_KEY e GOOGLE_CSE_CX devem ambas estar configuradas.',
         'Acesse programmablesearchengine.google.com para criar um mecanismo.',
         'Ative a Custom Search API no Google Cloud Console.',
+        'Atenção: é necessário vincular um cartão no Google Cloud mesmo para usar as 100 buscas gratuitas/dia.',
       ],
     }
     const base = hints[key] || []
