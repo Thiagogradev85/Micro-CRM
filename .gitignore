@@ -8,3 +8,4 @@ uploads/
 .claude/
 .vscode/
 .whatsapp-session/
+bun.lock
