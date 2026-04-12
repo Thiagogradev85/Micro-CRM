@@ -174,14 +174,16 @@ export function SettingsPage() {
     }
   }
 
-  // ── Testar chave ──
+  // ── Testar chave (envia valor digitado para salvar antes de testar) ──
   async function handleTest(key) {
     setTesting(t => ({ ...t, [key]: true }))
     setResults(r => ({ ...r, [key]: null }))
     try {
       const pwd = sessionStorage.getItem('settings_password') || password
-      const data = await api.testSetting(pwd, key)
+      const typedValue = values[key]  // valor digitado mas ainda não salvo
+      const data = await api.testSetting(pwd, key, typedValue || undefined)
       setResults(r => ({ ...r, [key]: data }))
+      if (typedValue) await fetchConfig()  // atualiza badges se salvou junto
     } catch (err) {
       setResults(r => ({ ...r, [key]: { ok: false, message: err.message || 'Erro no teste.' } }))
     } finally {

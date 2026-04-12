@@ -52,13 +52,18 @@ export async function saveSettings(req, res, next) {
   }
 }
 
-/** POST /api/settings/test — testa uma chave específica */
+/** POST /api/settings/test — testa uma chave específica (salva antes se value enviado) */
 export async function testSetting(req, res, next) {
   try {
-    const { password, key } = req.body
+    const { password, key, value } = req.body
     if (!password) throw new AppError('Senha obrigatória.', 400)
     const ok = await verifySettingsPassword(password)
     if (!ok) throw new AppError('Senha incorreta.', 401)
+
+    // Se o valor foi enviado junto, salva antes de testar
+    if (value && MANAGED_KEYS.includes(key)) {
+      await setConfig(key, value)
+    }
 
     switch (key) {
       case 'DATABASE_URL': {
