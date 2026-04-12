@@ -1,5 +1,8 @@
 import { AppError }           from '../../utils/AppError.js'
 import { searchWebSerpApi }   from './serpApiSearch.js'
+import { searchWebBrave }     from './braveSearch.js'
+import { searchWebBing }      from './bingSearch.js'
+import { searchWebCse }       from './googleCse.js'
 
 const SERPER_MAPS_URL   = 'https://google.serper.dev/maps'
 const SERPER_SEARCH_URL = 'https://google.serper.dev/search'
@@ -107,32 +110,64 @@ async function _searchWebSerper(query) {
   }
 }
 
-// ── searchWeb público — Serper com fallback Google CSE ────────────────────────
+// ── Cadeia de fallback ────────────────────────────────────────────────────────
+//
+// Ordem de prioridade quando o Serper atinge o limite:
+//   1. SerpApi      — gratuito, 100 buscas/mês        (SERPAPI_KEY)
+//   2. Brave Search — gratuito, 2.000 buscas/mês      (BRAVE_SEARCH_KEY)
+//   3. Bing Search  — gratuito/pago, 1.000 buscas/mês (BING_SEARCH_KEY)
+//   4. Google CSE   — gratuito/pago, 100 buscas/dia   (GOOGLE_CSE_KEY + GOOGLE_CSE_CX)
+//
+// Providers não configurados retornam null e são ignorados silenciosamente.
+// Usuários sem nenhum fallback configurado não são afetados.
+
+async function tryFallbacks(query) {
+  const providers = [
+    { name: 'SerpApi',     fn: () => searchWebSerpApi(query) },
+    { name: 'Brave',       fn: () => searchWebBrave(query)   },
+    { name: 'Bing',        fn: () => searchWebBing(query)    },
+    { name: 'Google CSE',  fn: () => searchWebCse(query)     },
+  ]
+
+  for (const { name, fn } of providers) {
+    const result = await fn()
+    if (result) {
+      console.log(`[Search] Fallback bem-sucedido via ${name} para "${query}"`)
+      return result
+    }
+  }
+  return null
+}
+
+// ── searchWeb público ─────────────────────────────────────────────────────────
 
 /**
- * Searches Google Web — tenta Serper primeiro, cai para Google CSE se limite atingido.
+ * Busca web com cadeia de fallback automática.
+ *
+ * Tenta Serper primeiro. Se o limite for atingido, percorre os fallbacks
+ * na ordem: SerpApi → Brave → Bing → Google CSE.
+ * Providers sem chave configurada são ignorados silenciosamente.
  *
  * @param {string} query
  * @returns {{ organic, knowledgeGraph, localResults }}
  */
 export async function searchWeb(query) {
-  // Se o limite já foi registrado nesta sessão, vai direto ao fallback
+  // Limite já conhecido nesta sessão — vai direto aos fallbacks
   if (serperLimitHitAt) {
-    const cse = await searchWebSerpApi(query)
-    if (cse) return cse
+    const result = await tryFallbacks(query)
+    if (result) return result
     throw new AppError('SERPER_LIMIT_REACHED', 402)
   }
 
   try {
     return await _searchWebSerper(query)
   } catch (err) {
-    // Limite atingido agora — registra e tenta CSE como fallback
     if (err.message === 'SERPER_LIMIT_REACHED') {
       serperLimitHitAt = serperLimitHitAt || new Date().toISOString()
-      console.warn(`[Serper] Limite atingido em ${serperLimitHitAt} — tentando Google CSE...`)
-      const cse = await searchWebSerpApi(query)
-      if (cse) return cse
-      throw err  // nenhum fallback disponível — propaga SERPER_LIMIT_REACHED
+      console.warn(`[Serper] Limite atingido em ${serperLimitHitAt} — tentando fallbacks...`)
+      const result = await tryFallbacks(query)
+      if (result) return result
+      throw err
     }
     throw err
   }
