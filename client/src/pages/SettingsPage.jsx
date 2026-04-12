@@ -119,14 +119,15 @@ export function SettingsPage() {
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
 
-  const [config, setConfig]     = useState([])
-  const [loading, setLoading]   = useState(false)
-  const [values, setValues]     = useState({})
-  const [showValues, setShowValues] = useState({})
-  const [saving, setSaving]     = useState({})
-  const [testing, setTesting]   = useState({})
-  const [clearing, setClearing] = useState({})
-  const [saved, setSaved]       = useState({})  // {KEY: bool} — badge verde temporário
+  const [config, setConfig]       = useState([])
+  const [loading, setLoading]     = useState(false)
+  const [values, setValues]       = useState({})
+  const [revealedValues, setRevealedValues] = useState({}) // {KEY: string} valor real revelado
+  const [saving, setSaving]       = useState({})
+  const [testing, setTesting]     = useState({})
+  const [clearing, setClearing]   = useState({})
+  const [revealing, setRevealing] = useState({})
+  const [saved, setSaved]         = useState({})  // {KEY: bool} — badge verde temporário
 
   // ── Carrega config ao autenticar ──
   const fetchConfig = useCallback(async () => {
@@ -299,6 +300,34 @@ export function SettingsPage() {
       })
     } finally {
       setTesting(t => ({ ...t, GOOGLE_CSE_KEY: false }))
+    }
+  }
+
+  // ── Revelar valor completo da chave (pede senha) ──
+  async function handleReveal(key) {
+    // Se já está revelado, esconde
+    if (revealedValues[key]) {
+      setRevealedValues(v => { const n = { ...v }; delete n[key]; return n })
+      return
+    }
+    const pwd = window.prompt('Digite a senha de admin para visualizar a chave:')
+    if (!pwd) return
+    setRevealing(r => ({ ...r, [key]: true }))
+    try {
+      const data = await api.revealSetting(pwd, key)
+      if (data.ok) {
+        setRevealedValues(v => ({ ...v, [key]: data.value }))
+        // Esconde automaticamente após 30 segundos
+        setTimeout(() => setRevealedValues(v => {
+          const n = { ...v }; delete n[key]; return n
+        }), 30000)
+      } else {
+        showModal({ type: 'error', title: 'Erro ao revelar', message: data.message })
+      }
+    } catch (err) {
+      showModal({ type: 'error', title: 'Erro ao revelar', message: err.message || 'Senha incorreta.' })
+    } finally {
+      setRevealing(r => ({ ...r, [key]: false }))
     }
   }
 
@@ -502,7 +531,8 @@ export function SettingsPage() {
                 const isClearing = clearing[def.key]
                 const wasSaved  = saved[def.key]
                 const isDirty   = !!values[def.key]
-                const visible   = showValues[def.key]
+                const isRevealed  = !!revealedValues[def.key]
+                const isRevealing = !!revealing[def.key]
                 // Mostra lixeira se o valor veio do banco (pode ter sido digitado errado)
                 const hasDbValue = entry?.source === 'db' || entry?.source === 'env+db'
 
@@ -587,21 +617,28 @@ export function SettingsPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 relative">
                           <input
-                            type={def.isText ? 'text' : visible ? 'text' : 'password'}
-                            value={values[def.key] ?? ''}
-                            onChange={e => setValues(v => ({ ...v, [def.key]: e.target.value }))}
+                            type={def.isText ? 'text' : isRevealed ? 'text' : 'password'}
+                            value={isRevealed ? revealedValues[def.key] : (values[def.key] ?? '')}
+                            onChange={isRevealed ? undefined : e => setValues(v => ({ ...v, [def.key]: e.target.value }))}
+                            readOnly={isRevealed}
                             placeholder={entry?.configured ? entry.masked : def.placeholder}
-                            className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-600
-                                       rounded-lg pl-4 pr-10 py-2.5 text-sm font-mono focus:outline-none
-                                       focus:border-sky-500 transition-colors"
+                            className={`w-full bg-zinc-800 border rounded-lg pl-4 pr-10 py-2.5 text-sm font-mono
+                                       focus:outline-none transition-colors placeholder-zinc-600
+                                       ${isRevealed
+                                         ? 'border-emerald-600/50 text-emerald-300 select-all cursor-text'
+                                         : 'border-zinc-700 text-white focus:border-sky-500'}`}
                           />
                           {!def.isText && (
                             <button
                               type="button"
-                              onClick={() => setShowValues(s => ({ ...s, [def.key]: !s[def.key] }))}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                              onClick={() => handleReveal(def.key)}
+                              disabled={isRevealing}
+                              title={isRevealed ? 'Ocultar chave' : 'Revelar chave completa (requer senha)'}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 disabled:opacity-50"
                             >
-                              {visible ? <EyeOff size={15} /> : <Eye size={15} />}
+                              {isRevealing
+                                ? <Loader2 size={15} className="animate-spin" />
+                                : isRevealed ? <EyeOff size={15} className="text-emerald-400" /> : <Eye size={15} />}
                             </button>
                           )}
                         </div>

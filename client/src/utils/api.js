@@ -180,5 +180,6 @@ export const api = {
   settingsAuth:   (password)         => request('POST', '/settings/auth', { password }),
   getSettings:    ()                 => request('GET',  '/settings'),
   saveSettings:   (password, values) => request('POST', '/settings', { password, values }),
-  testSetting:    (password, key, value) => request('POST', '/settings/test', { password, key, value }),
+  testSetting:    (password, key, value) => request('POST', '/settings/test',   { password, key, value }),
+  revealSetting:  (password, key)        => request('POST', '/settings/reveal', { password, key }),
 }

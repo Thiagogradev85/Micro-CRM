@@ -169,3 +169,23 @@ export async function testSetting(req, res, next) {
     next(err)
   }
 }
+
+/** POST /settings/reveal — retorna o valor real de uma chave (exige senha) */
+export async function revealSetting(req, res, next) {
+  try {
+    const { password, key } = req.body
+    if (!password) throw new AppError('Senha obrigatória.', 400)
+    const ok = await verifySettingsPassword(password)
+    if (!ok) throw new AppError('Senha incorreta.', 401)
+    if (!MANAGED_KEYS.includes(key)) throw new AppError('Chave não permitida.', 403)
+
+    // Busca do banco primeiro, depois process.env
+    const { rows } = await db.query('SELECT value FROM settings WHERE key = $1', [key])
+    const value = rows[0]?.value || process.env[key] || ''
+    if (!value) return res.json({ ok: false, message: 'Chave não configurada.' })
+
+    res.json({ ok: true, value })
+  } catch (err) {
+    next(err)
+  }
+}
