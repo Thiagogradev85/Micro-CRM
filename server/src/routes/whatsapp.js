@@ -1,7 +1,9 @@
 import { Router } from 'express'
 import { WhatsAppController } from '../controllers/WhatsAppController.js'
+import { requireAuth } from '../middleware/authMiddleware.js'
 
 const router = Router()
+router.use(requireAuth)
 
 router.get('/status',         WhatsAppController.status)
 router.post('/connect',       WhatsAppController.connect)

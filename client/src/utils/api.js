@@ -30,6 +30,7 @@ function friendlyError(status, raw) {
 async function request(method, path, body) {
   const opts = {
     method,
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
   }
   if (body && !(body instanceof FormData)) {
@@ -175,6 +176,17 @@ export const api = {
     window.open(url, '_blank')
   },
   deleteReportEvent: (id) => request('DELETE', `/daily-report/events/${id}`),
+
+  // Auth
+  login:       (email, password) => request('POST', '/auth/login', { email, password }),
+  logout:      ()                => request('POST', '/auth/logout'),
+  me:          ()                => request('GET',  '/auth/me'),
+
+  // Admin — gestão de usuários
+  listUsers:   ()         => request('GET',    '/auth/users'),
+  createUser:  (data)     => request('POST',   '/auth/users', data),
+  updateUser:  (id, data) => request('PUT',    `/auth/users/${id}`, data),
+  deleteUser:  (id)       => request('DELETE', `/auth/users/${id}`),
 
   // Settings
   settingsAuth:   (password)         => request('POST', '/settings/auth', { password }),

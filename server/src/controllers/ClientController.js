@@ -36,6 +36,7 @@ export const ClientController = {
         ja_cliente:       ja_cliente       !== undefined && ja_cliente       !== '' ? ja_cliente       === 'true' : undefined,
         catalogo_enviado: catalogo_enviado !== undefined && catalogo_enviado !== '' ? catalogo_enviado === 'true' : undefined,
         search,
+        userId: req.user.id,
       })
       res.json(data)
     } catch (err) {
@@ -56,6 +57,7 @@ export const ClientController = {
         page: page ? parseInt(page) : 1,
         limit: limit ? parseInt(limit) : 50,
         sort: sort || 'created_at',
+        userId: req.user.id,
       })
       res.json(result)
     } catch (err) {
@@ -65,7 +67,7 @@ export const ClientController = {
 
   async get(req, res, next) {
     try {
-      const data = await ClientModel.get(req.params.id)
+      const data = await ClientModel.get(req.params.id, req.user.id)
       if (!data) throw new AppError('Cliente não encontrado', 404)
       res.json(data)
     } catch (err) {
@@ -78,7 +80,7 @@ export const ClientController = {
       const { nome, uf } = req.body
       if (!nome?.trim()) throw new AppError('Nome é obrigatório.', 422)
       if (!uf?.trim())   throw new AppError('UF é obrigatória.', 422)
-      const data = await ClientModel.create(req.body)
+      const data = await ClientModel.create(req.body, req.user.id)
       res.status(201).json(data)
     } catch (err) {
       if (err.code === '23505') return next(new AppError('Já existe um cliente com este nome neste estado (UF).', 409))
@@ -91,7 +93,7 @@ export const ClientController = {
       const { nome, uf } = req.body
       if (nome !== undefined && !nome?.trim()) throw new AppError('Nome é obrigatório.', 422)
       if (uf   !== undefined && !uf?.trim())   throw new AppError('UF é obrigatória.', 422)
-      const data = await ClientModel.update(req.params.id, req.body)
+      const data = await ClientModel.update(req.params.id, req.body, req.user.id)
       if (data === 'CONFLICT') throw new AppError('Este cliente foi alterado em outra aba ou sessão. Recarregue antes de salvar.', 409)
       if (!data) throw new AppError('Cliente não encontrado', 404)
       res.json(data)
@@ -104,10 +106,10 @@ export const ClientController = {
   async delete(req, res, next) {
     try {
       if (req.query.permanent === 'true') {
-        await ClientModel.destroy(req.params.id)
+        await ClientModel.destroy(req.params.id, req.user.id)
         return res.json({ message: 'Cliente excluído permanentemente' })
       }
-      const data = await ClientModel.deactivate(req.params.id)
+      const data = await ClientModel.deactivate(req.params.id, req.user.id)
       if (!data) throw new AppError('Cliente não encontrado', 404)
       res.json({ message: 'Cliente inativado com sucesso', client: data })
     } catch (err) {
@@ -169,6 +171,7 @@ export const ClientController = {
         limit: 9999,
         page: 1,
         sort: 'uf',
+        userId: req.user.id,
       })
       const clients = result.data
 
@@ -193,7 +196,7 @@ export const ClientController = {
     try {
       const fileBuffer = await readFileFromRequest(req)
       const { records, rejected } = await importExcel(fileBuffer)
-      const result = await ClientModel.bulkUpsert(records)
+      const result = await ClientModel.bulkUpsert(records, req.user.id)
       res.json({ ...result, rejected: rejected || [] })
     } catch (err) {
       next(err)
@@ -205,7 +208,7 @@ export const ClientController = {
   async getOverdue(req, res, next) {
     try {
       const days = parseInt(req.query.days) || 3
-      const clients = await ClientModel.getOverdue(days)
+      const clients = await ClientModel.getOverdue(days, req.user.id)
       res.json(clients)
     } catch (err) {
       next(err)
@@ -217,7 +220,7 @@ export const ClientController = {
   // similar ou telefone igual.
   async findDuplicates(req, res, next) {
     try {
-      const result = await ClientModel.list({ ativo: 'true', limit: 9999, page: 1 })
+      const result = await ClientModel.list({ ativo: 'true', limit: 9999, page: 1, userId: req.user.id })
       const clients = result.data
 
       const visited = new Set()

@@ -36,10 +36,10 @@ async function resetContatadoParaProspeccao({ apenasAnteriores = false } = {}) {
       : ''
 
     const { rowCount } = await db.query(`
-      UPDATE clients
-      SET status_id  = (SELECT id FROM status WHERE nome = 'Prospecção' LIMIT 1),
+      UPDATE clients c
+      SET status_id  = (SELECT id FROM status WHERE nome = 'Prospecção' AND user_id = c.user_id LIMIT 1),
           updated_at = NOW()
-      WHERE status_id = (SELECT id FROM status WHERE nome = 'Contatado' LIMIT 1)
+      WHERE status_id IN (SELECT id FROM status WHERE nome = 'Contatado')
         AND ativo = true
         ${whereExtra}
     `)

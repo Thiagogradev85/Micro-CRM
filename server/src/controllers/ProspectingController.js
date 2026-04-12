@@ -238,7 +238,7 @@ export const ProspectingController = {
           // Priority: parsed address UF → search UF (_ufFallback) → 'XX' (unknown state marker)
           if (!clientData.uf) clientData.uf = _ufFallback || 'XX'
 
-          const client = await ClientModel.create(clientData)
+          const client = await ClientModel.create(clientData, req.user.id)
           ids.push(client.id)
           saved++
         } catch (err) {
@@ -273,7 +273,7 @@ export const ProspectingController = {
       const results = []
 
       for (const id of clientIds) {
-        const client = await ClientModel.get(id)
+        const client = await ClientModel.get(id, req.user.id)
         if (!client) continue
 
         // Só enriquece quem tem algum campo de contato/social faltando

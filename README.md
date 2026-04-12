@@ -1,269 +1,91 @@
-# CRM Scooter & Patinetes Elétricos
+# ⚡ Leads CRM
 
-CRM mobile-first para gerenciamento de clientes, catálogos, vendedores, prospecção automática com enriquecimento de dados via IA, envio em massa via WhatsApp/e-mail e relatório diário.
-
----
-
-## Stack
-
-| Camada   | Tecnologia                                                        |
-|----------|-------------------------------------------------------------------|
-| Frontend | React 18 + Vite + Tailwind CSS                                    |
-| Backend  | Node.js + Express                                                 |
-| Banco    | PostgreSQL — Neon.tech                                            |
-| IA       | Anthropic Claude (importação de catálogo PDF + enriquecimento)    |
-| Busca    | Serper API (Google Maps + Google Web Search)                      |
-| Deploy   | Render (API + Static Site)                                        |
-
----
-
-## Inicialização — passo a passo
-
-### Pré-requisitos
-
-- Node.js 18+
-- Conta no [Neon.tech](https://neon.tech) (PostgreSQL gratuito)
-- Conta no [Serper.dev](https://serper.dev) (2.500 buscas/mês grátis)
-- Conta no [Anthropic Console](https://console.anthropic.com) (Claude API)
-
-### 1. Clonar o repositório
-
-```bash
-git clone https://github.com/Thiagogradev85/Leads-React-JS.git
-cd Leads-React-JS
-```
-
-### 2. Configurar variáveis de ambiente
-
-Crie o arquivo `server/.env` com o seguinte conteúdo:
-
-```env
-DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
-ANTHROPIC_API_KEY=sk-ant-...
-SERPER_API_KEY=sua-chave-serper
-PORT=8000
-NODE_ENV=development
-```
-
-| Variável            | Obrigatória | Usado em | Onde obter |
-|---------------------|-------------|----------|------------|
-| `DATABASE_URL`      | ✅ | Tudo | [neon.tech](https://neon.tech) → New Project → Connection String |
-| `SERPER_API_KEY`    | ✅ | Prospecção + Enriquecimento | [serper.dev](https://serper.dev) → Dashboard → API Key |
-| `SERPAPI_KEY`       | Recomendado | Fallback quando Serper esgota | [serpapi.com](https://serpapi.com) → Dashboard → API Key (100/mês grátis) |
-| `ANTHROPIC_API_KEY` | Opcional | Só para importar catálogo por PDF | [console.anthropic.com](https://console.anthropic.com) → API Keys |
-| `PORT`              | — | — | Padrão: `8000` |
-
-> **Atenção:** o módulo de **Enriquecimento de Dados** usa apenas a `SERPER_API_KEY` — sem necessidade de chave Anthropic.
-> A `ANTHROPIC_API_KEY` só é exigida se você quiser importar catálogos de produtos a partir de arquivos PDF.
-
----
-
-### Como obter a chave SerpApi (fallback gratuito)
-
-O SerpApi assume automaticamente quando os créditos do Serper acabam — **sem necessidade de intervenção manual**.
-
-1. Acesse [serpapi.com](https://serpapi.com)
-2. Clique em **Register** (canto superior direito)
-3. Preencha nome, e-mail e senha → clique **Sign Up**
-4. Confirme o e-mail (verifique a caixa de entrada)
-5. Após confirmar, você cai no **Dashboard**
-6. Sua chave aparece no topo: **"Your Private API Key"**
-7. Copie a chave e adicione ao `server/.env`:
-   ```env
-   SERPAPI_KEY=sua_chave_aqui
-   ```
-
-> Quando os créditos do Serper estiverem esgotados, o sistema exibe um aviso na tela de Enriquecimento
-> com a data prevista de renovação e indica se o SerpApi está ativo como fallback.
-
-### 3. Criar as tabelas no banco
-
-O schema completo está em `server/migrations/001_schema.sql`.
-Execute no seu banco Neon (via SQL Editor no dashboard) ou com psql:
-
-```bash
-psql $DATABASE_URL -f server/migrations/001_schema.sql
-```
-
-### 4. Instalar dependências e rodar
-
-```bash
-# Backend (porta 8000)
-cd server && npm install && npm run dev
-
-# Frontend (nova aba — porta 5173)
-cd client && npm install && npm run dev
-```
-
-Acesse: **http://localhost:5173**
-
----
+**v2.0.0** — CRM multi-tenant para gestão de leads, prospecção, catálogos e envio em massa via WhatsApp e E-mail.
 
 ## Funcionalidades
 
-### Clientes
+- **Gestão de Clientes** — cadastro, filtros, notas, UFs, catálogo enviado, vendedor responsável
+- **Importação / Exportação** — Excel (bulk upsert) e PDF
+- **Catálogos & Produtos** — catálogos com produtos vinculados, exportação PDF, importação via PDF com IA
+- **Vendedores** — por UF, atribuição automática
+- **WhatsApp em Massa** — envio filtrado com delay configurável
+- **E-mail em Massa** — templates com variáveis, anexo de catálogo em PDF
+- **Prospecção** — busca no Google Maps via Serper/SerpApi/Brave/Bing/Google CSE
+- **Enriquecimento** — busca dados faltantes via IA (Claude)
+- **Relatório Diário** — eventos: novos clientes, contatados, catálogos solicitados, compras
+- **Configurações** — chaves de API via UI, proteção por senha, reveal com confirmação
+- **Multi-tenant** — login por usuário, dados isolados por user_id; admin gerencia contas
 
-Central de gerenciamento de prospects e clientes. Exibe todos os contatos agrupados por estado (UF) ou em lista plana.
+## Stack
 
-- **Busca e filtros**: por nome/cidade, estado, status, nota, ativos/inativos, prospects/clientes, catálogo enviado
-- **Visualização Por Estado**: cada UF carrega clientes sob demanda (lazy load) — só busca os dados ao abrir a aba. Cache por sessão
-- **Visualização Lista**: paginação real no backend (50/página), ordenação por nome ou último contato
-- **Seção Atenção**: destaca clientes sem contato há mais de N dias (configurável). UFs ocultáveis individualmente
-- **Seção Novos**: clientes cadastrados hoje aparecem em destaque no topo
-- **Ordenação por último contato**: clique na coluna "Últ. Contato" para colocar clientes sem data no topo
-- **Flag "Catálogo Enviado"**: histórico permanente de quem já recebeu catálogo, com badge rosa e filtro
-- **Ações rápidas**: marcar como Contatado, ver detalhes, enriquecer dados (✨), inativar ou excluir
-- **Abrir cliente em nova aba**: clique no nome ou no ícone de olho — abre em nova janela, múltiplos clientes simultâneos
-- **Sincronização entre abas**: ao salvar um cliente, a lista principal atualiza automaticamente via BroadcastChannel
-- **Importar Excel**: importação em lote de clientes
-- **Exportar**: Excel (6 colunas, paisagem A4) ou PDF com filtros aplicados
-- **Duplicatas**: escaneia o banco e agrupa registros similares por nome e telefone para limpeza
+| Camada     | Tecnologia                                      |
+|------------|-------------------------------------------------|
+| Frontend   | React 18, Vite, Tailwind CSS, React Router      |
+| Backend    | Node.js, Express, PostgreSQL (Neon)             |
+| Auth       | JWT (httpOnly cookie), bcryptjs                 |
+| IA         | Claude (Anthropic) — enriquecimento + importação|
+| Busca      | Serper → SerpApi → Brave → Bing → Google CSE   |
+| Deploy     | Render (backend + frontend servido pelo Express)|
 
-### Detalhe do Cliente
+## Arquitetura de Auth
 
-Página completa do cliente com histórico e ações:
+Camadas completamente desacopladas — trocar JWT por outro mecanismo requer alterar apenas `utils/auth.js` e `middleware/authMiddleware.js`:
 
-- Edição de todos os dados: nome, cidade, UF, WhatsApp, Instagram, e-mail, site, status, nota
-- **Proteção contra conflito de edição**: se outra aba salvar o mesmo cliente entre a abertura e o salvamento, o sistema avisa e oferece opção de forçar ou descartar
-- **Observações**: histórico de anotações com data e hora
-- **Botão Instagram**: abre input específico para registrar observação vinda do Instagram
-- Links diretos para WhatsApp (wa.me) e Instagram
-- Histórico de contatos via relatório diário
+```
+utils/auth.js                ← JWT: hashPassword, signToken, verifyToken
+middleware/authMiddleware.js ← requireAuth, requireAdmin
+routes/*.js                  ← router.use(requireAuth)
+controllers/*.js             ← usa req.user.id (não conhece JWT)
+```
 
-### Prospecção
+## Configuração
 
-Busca empresas no **Google Maps** e cadastra novos prospects automaticamente.
+### Variáveis de ambiente (servidor)
 
-1. Informe o **segmento** de negócio (ex: `farmácias, clínicas`), **estado** e **cidade**
-2. O sistema busca via Serper API e filtra empresas já cadastradas (deduplicação fuzzy)
-3. Selecione os prospects desejados, edite dados inline se necessário
-4. Clique em **Salvar selecionados**
-5. Após salvar, o sistema oferece **Enriquecimento de Dados** automático
+```env
+DATABASE_URL=postgresql://...
+JWT_SECRET=seu-segredo-jwt
+ADMIN_EMAIL=admin@empresa.com
+ADMIN_PASSWORD=senha-forte
+ADMIN_NOME=Administrador
+NODE_ENV=production
+```
 
-### Enriquecimento de Dados
+### Chaves de API (via Settings no app)
 
-Módulo dedicado acessível pelo menu lateral em **Enriquecimento**. Permite buscar dados de contato faltantes para clientes já existentes na base.
+- `ANTHROPIC_API_KEY` — Claude (enriquecimento e importação PDF)
+- `SERPER_API_KEY` — prospecção Google Maps
+- `SERPAPI_KEY` — fallback de busca
+- `BRAVE_SEARCH_API_KEY` — fallback Brave (pago $5/mês)
+- `BING_SEARCH_API_KEY` — fallback Bing
+- `GOOGLE_CSE_KEY` / `GOOGLE_CSE_CX` — fallback Google CSE (requer billing mesmo no plano gratuito)
 
-**Três formas de uso:**
+## Banco de dados — Migrações
 
-1. **Após prospecção** — ao salvar novos prospects, o modal de enriquecimento abre automaticamente
-2. **Módulo avulso** (`/enrich`) — selecione clientes existentes por UF, status ou busca por nome e enriqueça em lote
-3. **Por cliente individual** — ícone ✨ em cada linha da tabela de Clientes abre o modal somente para aquele cliente
+Execute em ordem no Neon SQL Editor:
 
-**Filtros disponíveis na página `/enrich`:**
-- Busca por nome ou cidade
-- Estado (UF) — seleciona toda a UF com um clique
-- Status do cliente
-- Campos faltando: "Sem Instagram", "Sem WhatsApp", "Sem E-mail", "Sem Facebook"
+```
+server/migrations/001_*.sql  →  ...  →  server/migrations/011_multi_tenant.sql
+```
 
-**Como funciona (4 buscas paralelas por cliente):**
-- `[nome] [cidade] contato telefone email whatsapp` — dados gerais, knowledge graph do Google
-- `"[nome]" [cidade] site:instagram.com` — perfil direto; fallback sem cidade se necessário
-- `"[nome]" [cidade] site:facebook.com` — extrai slug, telefone, e-mail e Instagram dos snippets e sitelinks
-- `"[nome]" email contato` — busca dedicada de e-mail
-- Captura menções explícitas como `"Instagram: @handle"` nos snippets do Facebook
-- O usuário revisa cada campo sugerido com checkboxes — nenhum dado é salvo automaticamente
-- Suporta lotes de 20 clientes com barra de progresso
+## Desenvolvimento local
 
-> **Custo Serper:** até 4 créditos por cliente (queries são puladas se o campo já existe). Plano free: 2.500/mês.
+```bash
+# Backend
+cd server && npm install && npm run dev
 
-### Produtos
+# Frontend
+cd client && npm install && npm run dev
+```
 
-Catálogo interno de produtos (Bikes Elétricas e Patinetes Elétricos).
+Frontend: http://localhost:5173 (proxy `/api/*` → porta 8000)
 
-- Campos: tipo (dropdown), modelo, preço, bateria, motor, velocidades, pneu, suspensão, autonomia, carregador, impermeabilidade, câmbio, dimensões, estoque, imagem
-- Importação de catálogo PDF via Claude (extração automática de especificações)
+## Deploy (Render)
 
-### Catálogos
-
-Agrupa produtos em catálogos para envio a clientes.
-
-- Criar catálogos com nome e data
-- Adicionar produtos existentes ou criar novos dentro do catálogo
-- Gerar PDF do catálogo para compartilhamento
-- Importar produtos a partir de PDF via IA
-
-### Vendedores
-
-Gerenciamento da equipe de vendas.
-
-- Cadastro de vendedores com nome e estados (UFs) atendidos
-- Atribuição automática de vendedor ao cliente pelo estado ao prospectar
-- Relatório por vendedor
-
-### WhatsApp
-
-Envio em massa de mensagens via WhatsApp Business.
-
-- Conexão por QR Code (Baileys — WhatsApp Web)
-- Seleção de clientes por filtros (estado, status, nota)
-- Personalização da mensagem com variáveis (nome do cliente)
-- Envio com intervalo configurável entre mensagens
-- Barra de progresso em tempo real
-
-### E-mail em Massa
-
-Envio de e-mail marketing para a base de clientes.
-
-- Configuração de SMTP próprio
-- Editor de e-mail com suporte a HTML
-- Seleção de destinatários por filtros
-- Envio em lote com feedback de progresso
-
-### Relatório Diário
-
-Painel de acompanhamento das atividades do dia.
-
-- Clientes novos cadastrados
-- Clientes contatados
-- Vendas realizadas
-- Solicitações de catálogo
-
-### Reset automático de status
-
-Todo dia à meia-noite (horário de Brasília), clientes com status **Contatado** voltam automaticamente para **Prospecção**, permitindo que entrem novamente no relatório diário caso sejam contatados no novo dia.
-
-Se o servidor estiver offline à meia-noite, o reset ocorre automaticamente na próxima inicialização (apenas para contatos de dias anteriores).
+1. Build command: `cd client && npm install && npm run build && cd ../server && npm install`
+2. Start command: `node server/src/index.js`
+3. Configurar variáveis de ambiente no dashboard do Render
 
 ---
 
-## Deploy — Render
-
-| Serviço      | Root Dir | Build                     | Start       |
-|--------------|----------|---------------------------|-------------|
-| API (Web)    | `server` | `npm ci`                  | `npm start` |
-| App (Static) | `client` | `npm ci && npm run build` | —           |
-
-Variáveis necessárias no Render: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `SERPER_API_KEY`, `NODE_ENV=production`.
-
----
-
-## Changelog
-
-### v1.7.0
-- **SerpApi como fallback automático** quando créditos do Serper se esgotam — modal com data de reset
-- **ENRICH_SEGMENT**: direciona o enriquecimento ao segmento de negócio (evita resultados irrelevantes)
-- Estratégias de Instagram aprimoradas: padrão de título `(@handle) • Instagram`, fallback sem cidade, busca livre
-- Validação de cidade extraída contra API oficial do IBGE
-- Importação de Excel: rejeita linhas com nome inválido (só números), detecta coluna de nome por conteúdo
-- Máscara de CNPJ nos formulários (onBlur formata automaticamente)
-- Normalização de telefone: remove DDI `55` duplicado ao sair do campo e no enriquecimento
-- Links de WhatsApp corrigidos para números salvos com `55` na frente
-- Broadcast de eventos entre abas no CRUD completo de clientes
-
-### v1.6.0
-- Multi-abas, performance e lazy loading
-
----
-
-## Documentação completa
-
-Acesse o **[Wiki do repositório](https://github.com/Thiagogradev85/Leads-React-JS/wiki)** para:
-
-- Arquitetura e estrutura de pastas
-- Banco de dados — tabelas e eventos
-- API — todos os endpoints
-- Módulo WhatsApp (Baileys)
-- Módulo E-mail (Nodemailer)
-- Sistema de modais (AppModal + useModal)
-- Enriquecimento de dados — fluxo completo
+Desenvolvido por **Thiago Gramuglia** — CNPJ 64.828.611/0001-05

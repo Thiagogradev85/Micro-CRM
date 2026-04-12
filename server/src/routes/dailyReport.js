@@ -1,7 +1,9 @@
 import { Router } from 'express'
 import { DailyReportController } from '../controllers/DailyReportController.js'
+import { requireAuth } from '../middleware/authMiddleware.js'
 
 const router = Router()
+router.use(requireAuth)
 
 router.get('/summary',       DailyReportController.getSummary)
 router.get('/details',       DailyReportController.getDetails)

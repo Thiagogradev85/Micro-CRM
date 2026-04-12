@@ -1,9 +1,11 @@
 import { Router } from 'express'
 import multer from 'multer'
 import { CatalogController } from '../controllers/CatalogController.js'
+import { requireAuth } from '../middleware/authMiddleware.js'
 
 const upload = multer({ storage: multer.memoryStorage() })
 const router = Router()
+router.use(requireAuth)
 
 // Catálogos
 router.get('/',    CatalogController.list)

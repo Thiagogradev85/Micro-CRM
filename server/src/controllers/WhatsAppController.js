@@ -61,6 +61,7 @@ export const WhatsAppController = {
         ativo: 'true',
         limit: 9999,
         page: 1,
+        userId: req.user.id,
       })
       const clients = result.data.filter(c => c.whatsapp)
       res.json({ total: clients.length, clients })
@@ -82,10 +83,12 @@ export const WhatsAppController = {
         ativo: 'true',
         limit: 9999,
         page: 1,
+        userId: req.user.id,
       })
       const clients = result.data.filter(c => c.whatsapp)
       if (clients.length === 0) throw new AppError('Nenhum cliente com WhatsApp encontrado para os filtros selecionados.', 400)
 
+      const userId = req.user.id
       progressStore.start(clients.length)
       res.json({ message: `Iniciando envio para ${clients.length} clientes...`, total: clients.length })
 
@@ -98,7 +101,7 @@ export const WhatsAppController = {
         },
         onSent: async (client) => {
           try {
-            await ClientModel.markContacted(client.id)
+            await ClientModel.markContacted(client.id, userId)
           } catch (err) {
             console.error(`[WhatsApp] Erro ao marcar cliente ${client.nome} como contatado:`, err.message)
           }

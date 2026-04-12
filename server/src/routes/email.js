@@ -1,8 +1,10 @@
 import { Router } from 'express'
 import multer from 'multer'
 import { EmailController } from '../controllers/EmailController.js'
+import { requireAuth } from '../middleware/authMiddleware.js'
 
 const router = Router()
+router.use(requireAuth)
 
 // Aceita arquivo opcional de até 15 MB (PDF, imagem) como anexo
 const upload = multer({

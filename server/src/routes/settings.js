@@ -1,7 +1,9 @@
 import { Router } from 'express'
 import { authSettings, getSettings, saveSettings, testSetting, revealSetting } from '../controllers/SettingsController.js'
+import { requireAuth } from '../middleware/authMiddleware.js'
 
 const router = Router()
+router.use(requireAuth)
 
 router.post('/auth',   authSettings)
 router.get('/',        getSettings)

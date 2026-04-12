@@ -21,7 +21,7 @@ async function buildAttachments(req) {
 
   const catalogId = req.body?.catalog_id
   if (catalogId) {
-    const catalog  = await CatalogModel.get(catalogId)
+    const catalog  = await CatalogModel.get(catalogId, req.user.id)
     if (!catalog) throw new AppError('Catálogo não encontrado.', 404)
     const products = await ProductModel.listByCatalog(catalogId)
     const pdfBuffer = await generateCatalogPdf({ catalog, products })
@@ -73,6 +73,7 @@ export const EmailController = {
         ativo: 'true',
         limit: 9999,
         page: 1,
+        userId: req.user.id,
       })
       const clients    = result.data.filter(c => c.email)
       const noEmail    = result.data.length - clients.length
@@ -129,6 +130,7 @@ export const EmailController = {
         ativo: 'true',
         limit: 9999,
         page: 1,
+        userId: req.user.id,
       })
       const clients = result.data.filter(c => c.email)
       if (clients.length === 0) {
@@ -136,6 +138,7 @@ export const EmailController = {
       }
 
       const attachments = await buildAttachments(req)
+      const userId = req.user.id
 
       res.json({ message: `Iniciando envio para ${clients.length} clientes...`, total: clients.length })
 
@@ -150,7 +153,7 @@ export const EmailController = {
         },
         onSent: async (client) => {
           try {
-            await ClientModel.markContacted(client.id)
+            await ClientModel.markContacted(client.id, userId)
           } catch (err) {
             console.error(`[Email] Erro ao marcar ${client.nome} como contatado:`, err.message)
           }

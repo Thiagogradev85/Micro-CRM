@@ -1,7 +1,9 @@
 import { Router } from 'express'
 import { ProspectingController } from '../controllers/ProspectingController.js'
+import { requireAuth } from '../middleware/authMiddleware.js'
 
 const router = Router()
+router.use(requireAuth)
 
 router.post('/search', ProspectingController.search)
 router.post('/save',   ProspectingController.save)

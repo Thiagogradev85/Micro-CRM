@@ -1,7 +1,7 @@
 import db from '../db/db.js'
 
 export const SellerModel = {
-  async list() {
+  async list(userId) {
     const { rows } = await db.query(`
       SELECT s.*,
              COALESCE(
@@ -10,13 +10,14 @@ export const SellerModel = {
              ) AS ufs
       FROM sellers s
       LEFT JOIN seller_ufs su ON su.seller_id = s.id
+      WHERE s.user_id = $1
       GROUP BY s.id
       ORDER BY s.nome ASC
-    `)
+    `, [userId])
     return rows
   },
 
-  async get(id) {
+  async get(id, userId) {
     const { rows } = await db.query(`
       SELECT s.*,
              COALESCE(
@@ -25,19 +26,19 @@ export const SellerModel = {
              ) AS ufs
       FROM sellers s
       LEFT JOIN seller_ufs su ON su.seller_id = s.id
-      WHERE s.id = $1
+      WHERE s.id = $1 AND s.user_id = $2
       GROUP BY s.id
-    `, [id])
+    `, [id, userId])
     return rows[0] || null
   },
 
-  async create({ nome, whatsapp, ufs = [] }) {
+  async create({ nome, whatsapp, ufs = [] }, userId) {
     const client = await db.connect()
     try {
       await client.query('BEGIN')
       const { rows } = await client.query(
-        'INSERT INTO sellers (nome, whatsapp) VALUES ($1, $2) RETURNING *',
-        [nome, whatsapp]
+        'INSERT INTO sellers (nome, whatsapp, user_id) VALUES ($1, $2, $3) RETURNING *',
+        [nome, whatsapp, userId]
       )
       const seller = rows[0]
       for (const uf of ufs) {
@@ -47,7 +48,7 @@ export const SellerModel = {
         )
       }
       await client.query('COMMIT')
-      return this.get(seller.id)
+      return this.get(seller.id, userId)
     } catch (err) {
       await client.query('ROLLBACK')
       throw err
@@ -56,7 +57,7 @@ export const SellerModel = {
     }
   },
 
-  async update(id, { nome, whatsapp, ativo, ufs }) {
+  async update(id, { nome, whatsapp, ativo, ufs }, userId) {
     const client = await db.connect()
     try {
       await client.query('BEGIN')
@@ -65,8 +66,8 @@ export const SellerModel = {
          SET nome     = COALESCE($1, nome),
              whatsapp = COALESCE($2, whatsapp),
              ativo    = COALESCE($3, ativo)
-         WHERE id = $4`,
-        [nome, whatsapp, ativo, id]
+         WHERE id = $4 AND user_id = $5`,
+        [nome, whatsapp, ativo, id, userId]
       )
       if (Array.isArray(ufs)) {
         await client.query('DELETE FROM seller_ufs WHERE seller_id = $1', [id])
@@ -78,7 +79,7 @@ export const SellerModel = {
         }
       }
       await client.query('COMMIT')
-      return this.get(id)
+      return this.get(id, userId)
     } catch (err) {
       await client.query('ROLLBACK')
       throw err
@@ -87,7 +88,7 @@ export const SellerModel = {
     }
   },
 
-  async delete(id) {
-    await db.query('DELETE FROM sellers WHERE id = $1', [id])
+  async delete(id, userId) {
+    await db.query('DELETE FROM sellers WHERE id = $1 AND user_id = $2', [id, userId])
   },
 }

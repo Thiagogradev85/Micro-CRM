@@ -1,7 +1,9 @@
 import { Router } from 'express'
 import { ClientController } from '../controllers/ClientController.js'
+import { requireAuth } from '../middleware/authMiddleware.js'
 
 const router = Router()
+router.use(requireAuth)
 
 // Rotas estáticas — devem vir ANTES das rotas com /:id
 router.post('/import',                        ClientController.importExcel)

@@ -1,8 +1,9 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  Users, BookOpen, BarChart2, UserCheck, X, Menu, Package, MessageCircle, Mail, Telescope, Sparkles, Settings
+  Users, BookOpen, BarChart2, UserCheck, X, Menu, Package, MessageCircle, Mail, Telescope, Sparkles, Settings, LogOut, Shield, UserCog
 } from 'lucide-react'
 import { useState } from 'react'
+import { useAuth } from '../contexts/AuthContext.jsx'
 
 const links = [
   { to: '/clients',      icon: Users,         label: 'Clientes'         },
@@ -17,8 +18,15 @@ const links = [
 ]
 
 export function Sidebar() {
-  const [open, setOpen] = useState(false)
-  const navigate = useNavigate()
+  const [open, setOpen]   = useState(false)
+  const navigate           = useNavigate()
+  const { user, logout }   = useAuth()
+
+  async function handleLogout() {
+    setOpen(false)
+    await logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <>
@@ -71,7 +79,23 @@ export function Sidebar() {
           ))}
         </nav>
 
-        <div className="px-2 mb-2">
+        <div className="px-2 mb-1 space-y-0.5">
+          {user?.role === 'admin' && (
+            <NavLink
+              to="/admin/users"
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                ${isActive
+                  ? 'bg-sky-600/20 text-sky-400 border border-sky-600/30'
+                  : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+                }`
+              }
+            >
+              <UserCog size={17} />
+              Usuários
+            </NavLink>
+          )}
           <NavLink
             to="/settings"
             onClick={() => setOpen(false)}
@@ -88,8 +112,26 @@ export function Sidebar() {
           </NavLink>
         </div>
 
+        {/* User info + logout */}
+        {user && (
+          <div className="mx-2 mb-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
+            <div className="flex items-center gap-2 mb-1.5">
+              {user.role === 'admin' && <Shield size={12} className="text-amber-400 flex-shrink-0" />}
+              <span className="truncate text-xs font-medium text-zinc-300">{user.nome}</span>
+            </div>
+            <p className="truncate text-xs text-zinc-600 mb-2">{user.email}</p>
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-zinc-500 transition hover:bg-zinc-800 hover:text-red-400"
+            >
+              <LogOut size={12} />
+              Sair
+            </button>
+          </div>
+        )}
+
         <div className="px-4 pb-2 space-y-0.5">
-          <div className="text-xs text-zinc-600">v1.7.0</div>
+          <div className="text-xs text-zinc-600">v2.0.0</div>
           <div className="text-xs text-zinc-700 leading-tight truncate">Desenvolvido por Thiago Gramuglia</div>
           <div className="text-xs text-zinc-700 truncate">CNPJ 64.828.611/0001-05</div>
         </div>
