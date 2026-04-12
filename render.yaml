@@ -1,7 +1,6 @@
 services:
-  # Backend API
   - type: web
-    name: leads-crm-api
+    name: micro-crm-saas
     runtime: node
     rootDir: server
     buildCommand: cd ../client && npm install && npm run build && cd ../server && npm install
@@ -9,22 +8,13 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: ANTHROPIC_API_KEY
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NOME
         sync: false
       - key: NODE_ENV
         value: production
-
-  # Frontend SPA
-  - type: web
-    name: leads-crm-client
-    runtime: static
-    rootDir: client
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_URL
-        sync: false
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
