@@ -88,7 +88,7 @@ const GROUPS = [
       {
         key: 'ENRICH_SEGMENT',
         label: 'Segmento de Negócio',
-        description: 'Segmento que direciona o enriquecimento (ex: "distribuidora de alimentos").',
+        description: 'Segmento que direciona o enriquecimento. Use apenas um segmento — múltiplos valores separados por vírgula são inseridos juntos na busca e podem piorar os resultados.',
         placeholder: 'distribuidora de alimentos',
         testable: false,
         isText: true,
