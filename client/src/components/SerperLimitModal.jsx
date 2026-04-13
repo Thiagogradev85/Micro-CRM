@@ -16,7 +16,7 @@ const BING_URL     = 'https://portal.azure.com'
  *
  * Nota: OpenStreetMap (Overpass) é sempre o fallback Maps real — sem API key.
  */
-export function SerperLimitModal({ onClose, resetDate, serpapiAvailable = false, bingAvailable = false, context = 'web' }) {
+export function SerperLimitModal({ onClose, onRetry, fallbackWorked = true, resetDate, serpapiAvailable = false, bingAvailable = false, context = 'web' }) {
   function handleOverlay(e) {
     if (e.target === e.currentTarget) onClose()
   }
@@ -201,8 +201,16 @@ export function SerperLimitModal({ onClose, resetDate, serpapiAvailable = false,
               <ExternalLink size={13} /> Configurar Bing no Azure
             </a>
           )}
-          <button className="btn-ghost w-full text-sm" onClick={onClose}>
-            {anyFallback ? 'Continuar com fallback ativo' : 'Aguardar renovação'}
+          <button
+            className="btn-ghost w-full text-sm"
+            onClick={() => { onClose(); if (!fallbackWorked && onRetry) onRetry() }}
+          >
+            {fallbackWorked
+              ? 'Continuar com fallback ativo'
+              : anyFallback
+                ? 'Tentar novamente com OpenStreetMap'
+                : 'Aguardar renovação'
+            }
           </button>
         </div>
 

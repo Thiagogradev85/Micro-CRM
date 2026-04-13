@@ -26,10 +26,8 @@ export function ProspectingPage() {
   const [resultSource, setResultSource] = useState(null) // 'serper' | 'openstreetmap' | ...
   const [enrichIds, setEnrichIds]   = useState(null)  // null = modal fechado
 
-  async function handleSearch(e) {
-    e.preventDefault()
-    if (!segment.trim()) return
-
+  // Lógica de busca separada do evento para permitir retry pelo modal
+  async function doSearch() {
     setLoading(true)
     setResults(null)
     setSelected(new Set())
@@ -39,16 +37,16 @@ export function ProspectingPage() {
       setResults(data)
       setCreditsUsed(data.creditsUsed)
       setResultSource(data.source || 'serper')
-      // Pre-select all unique prospects
       setSelected(new Set(data.unique.map((_, i) => i)))
-      // Avisa sobre limite Serper mesmo quando o fallback retornou resultados
+      // Fallback funcionou — mostra modal informativo mas resultados já estão na tela
       if (data.serperLimit) {
-        setLimitInfo(data.serperLimit)
+        setLimitInfo({ ...data.serperLimit, fallbackWorked: true })
         setShowLimitModal(true)
       }
     } catch (err) {
       if (err.message === 'SERPER_LIMIT_REACHED') {
-        setLimitInfo(err.payload?.serperLimit ?? null)
+        // Todos os fallbacks falharam — modal com botão de retry
+        setLimitInfo({ ...(err.payload?.serperLimit ?? {}), fallbackWorked: false })
         setShowLimitModal(true)
       } else {
         showModal({ type: 'error', title: 'Erro na busca', message: err.message })
@@ -56,6 +54,12 @@ export function ProspectingPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleSearch(e) {
+    e.preventDefault()
+    if (!segment.trim()) return
+    await doSearch()
   }
 
   function toggleAll() {
@@ -148,6 +152,8 @@ export function ProspectingPage() {
       {showLimitModal && (
         <SerperLimitModal
           onClose={() => setShowLimitModal(false)}
+          onRetry={doSearch}
+          fallbackWorked={limitInfo?.fallbackWorked ?? true}
           resetDate={limitInfo?.resetDate}
           serpapiAvailable={limitInfo?.serpapiAvailable ?? false}
           bingAvailable={limitInfo?.bingAvailable ?? false}

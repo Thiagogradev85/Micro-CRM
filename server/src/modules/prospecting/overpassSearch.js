@@ -157,7 +157,11 @@ function buildOsmFilters(segment) {
 function buildAreaQL(city, uf) {
   if (city?.trim()) {
     const c = city.trim().replace(/["\\]/g, '')
-    return `area["name"~"^${c}$","i"]["admin_level"~"^[89]$"]->.a;`
+    // Sem filtro de admin_level — capitais e cidades menores podem ter níveis
+    // distintos no OSM (Salvador=8, mas nem sempre padronizado). A área mais
+    // ampla pode retornar resultados de bairros homônimos, mas o volume de
+    // resultados é limitado a 20 e a deduplicação por ID OSM evita duplicatas.
+    return `area["name"~"^${c}$","i"]->.a;`
   }
   if (uf?.trim()) {
     // ISO 3166-2 é a forma mais confiável de encontrar o estado no OSM
