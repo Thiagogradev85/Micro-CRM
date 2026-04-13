@@ -166,6 +166,7 @@ export function ClientDetailPage() {
       ativo:            form.ativo,
       ja_cliente:       form.ja_cliente,
       catalogo_enviado: form.catalogo_enviado,
+      nao_tem_interesse: form.nao_tem_interesse,
       updated_at:       updatedAt ?? undefined,
     })
     broadcastClient('client_updated', id)
@@ -305,6 +306,16 @@ export function ClientDetailPage() {
               {client.catalogo_enviado && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-pink-600/20 text-pink-400 border border-pink-600/30">
                   ✓ Catálogo enviado
+                </span>
+              )}
+              {client.nao_tem_interesse && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-stone-600/30 text-stone-400 border border-stone-600/40">
+                  ✗ Já sem interesse
+                  {client.interesse_reset_at && (
+                    <span className="font-normal opacity-75">
+                      · volta em {new Date(client.interesse_reset_at).toLocaleDateString('pt-BR')}
+                    </span>
+                  )}
                 </span>
               )}
               {currentStatus && (
@@ -502,6 +513,11 @@ export function ClientDetailPage() {
                 <input type="checkbox" id="catalogo_enviado_edit" checked={!!form.catalogo_enviado}
                   onChange={e => set('catalogo_enviado', e.target.checked)} className="accent-pink-500" />
                 <label htmlFor="catalogo_enviado_edit" className="text-sm text-zinc-300">Catálogo já enviado</label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="nao_tem_interesse_edit" checked={!!form.nao_tem_interesse}
+                  onChange={e => set('nao_tem_interesse', e.target.checked)} className="accent-stone-500" />
+                <label htmlFor="nao_tem_interesse_edit" className="text-sm text-zinc-300">Já demonstrou desinteresse</label>
               </div>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="ativo_edit" checked={!!form.ativo}

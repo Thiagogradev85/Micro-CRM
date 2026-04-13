@@ -2,7 +2,7 @@ import db from '../db/db.js'
 
 export const ClientModel = {
   // Retorna lista de UFs com contagem, respeitando os mesmos filtros do list()
-  async listUFs({ status_id, ativo, ja_cliente, catalogo_enviado, search, userId } = {}) {
+  async listUFs({ status_id, ativo, ja_cliente, catalogo_enviado, nao_tem_interesse, search, userId } = {}) {
     const conditions = []
     const params = []
 
@@ -24,6 +24,10 @@ export const ClientModel = {
     if (catalogo_enviado !== undefined) {
       params.push(catalogo_enviado)
       conditions.push(`c.catalogo_enviado = $${params.length}`)
+    }
+    if (nao_tem_interesse !== undefined) {
+      params.push(nao_tem_interesse)
+      conditions.push(`c.nao_tem_interesse = $${params.length}`)
     }
     if (search) {
       const words = search.trim().split(/\s+/).filter(Boolean)
@@ -53,7 +57,7 @@ export const ClientModel = {
     return rows
   },
 
-  async list({ uf, status_id, ativo, ja_cliente, catalogo_enviado, search, page = 1, limit = 50, sort = 'created_at', userId } = {}) {
+  async list({ uf, status_id, ativo, ja_cliente, catalogo_enviado, nao_tem_interesse, search, page = 1, limit = 50, sort = 'created_at', userId } = {}) {
     const conditions = []
     const params = []
 
@@ -86,6 +90,10 @@ export const ClientModel = {
     if (catalogo_enviado !== undefined) {
       params.push(catalogo_enviado)
       conditions.push(`c.catalogo_enviado = $${params.length}`)
+    }
+    if (nao_tem_interesse !== undefined) {
+      params.push(nao_tem_interesse)
+      conditions.push(`c.nao_tem_interesse = $${params.length}`)
     }
     if (search) {
       // Todas as palavras devem casar no MESMO campo (evita falsos positivos onde
@@ -244,7 +252,7 @@ export const ClientModel = {
     const {
       nome, cidade, uf, whatsapp, telefone, site, email, instagram, facebook, twitter, linkedin,
       responsavel, logradouro, numero, complemento, bairro, cep, cnpj,
-      ativo, nota, status_id, catalog_id, seller_id, ja_cliente, catalogo_enviado,
+      ativo, nota, status_id, catalog_id, seller_id, ja_cliente, catalogo_enviado, nao_tem_interesse,
       updated_at: clientUpdatedAt
     } = data
 
@@ -286,12 +294,14 @@ export const ClientModel = {
         seller_id   = COALESCE($23, seller_id),
         ja_cliente        = COALESCE($25, ja_cliente),
         catalogo_enviado  = COALESCE($26, catalogo_enviado),
+        nao_tem_interesse = COALESCE($28, nao_tem_interesse),
         updated_at        = NOW()
       WHERE id = $24 AND user_id = $27
       RETURNING *
     `, [nome, cidade, uf, whatsapp, telefone, site, email, instagram, facebook, twitter, linkedin,
         responsavel, logradouro, numero, complemento, bairro, cep, cnpj,
-        ativo, nota, status_id, catalog_id, seller_id, id, ja_cliente, catalogo_enviado, userId])
+        ativo, nota, status_id, catalog_id, seller_id, id, ja_cliente, catalogo_enviado, userId,
+        nao_tem_interesse ?? null])
 
     const updated = rows[0]
     if (!updated) return null
@@ -331,6 +341,22 @@ export const ClientModel = {
           `UPDATE clients SET catalogo_enviado = true WHERE id = $1`, [id]
         )
         catalogEventFired = true
+      }
+
+      // Mudou para "Não Tem Interesse" → ativa flag histórica + agenda reset 3 meses
+      if (nomeStatus === 'Não Tem Interesse') {
+        await db.query(
+          `UPDATE clients SET nao_tem_interesse = true, interesse_reset_at = NOW() + interval '3 months' WHERE id = $1`,
+          [id]
+        )
+      }
+
+      // Saiu de "Não Tem Interesse" manualmente → cancela o timer (flag histórica permanece)
+      if (previous.status_nome === 'Não Tem Interesse' && nomeStatus !== 'Não Tem Interesse') {
+        await db.query(
+          `UPDATE clients SET interesse_reset_at = NULL WHERE id = $1`,
+          [id]
+        )
       }
     }
 

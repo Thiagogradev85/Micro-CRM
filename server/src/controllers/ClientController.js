@@ -29,12 +29,13 @@ function readFileFromRequest(req) {
 export const ClientController = {
   async listUFs(req, res, next) {
     try {
-      const { status_id, ativo, ja_cliente, catalogo_enviado, search } = req.query
+      const { status_id, ativo, ja_cliente, catalogo_enviado, nao_tem_interesse, search } = req.query
       const data = await ClientModel.listUFs({
         status_id:        status_id        ? parseInt(status_id) : undefined,
         ativo:            ativo            !== undefined && ativo            !== '' ? ativo            === 'true' : undefined,
         ja_cliente:       ja_cliente       !== undefined && ja_cliente       !== '' ? ja_cliente       === 'true' : undefined,
         catalogo_enviado: catalogo_enviado !== undefined && catalogo_enviado !== '' ? catalogo_enviado === 'true' : undefined,
+        nao_tem_interesse: nao_tem_interesse !== undefined && nao_tem_interesse !== '' ? nao_tem_interesse === 'true' : undefined,
         search,
         userId: req.user.id,
       })
@@ -46,13 +47,14 @@ export const ClientController = {
 
   async list(req, res, next) {
     try {
-      const { uf, status_id, ativo, ja_cliente, catalogo_enviado, search, page, limit, sort } = req.query
+      const { uf, status_id, ativo, ja_cliente, catalogo_enviado, nao_tem_interesse, search, page, limit, sort } = req.query
       const result = await ClientModel.list({
         uf,
         status_id:        status_id        ? parseInt(status_id) : undefined,
         ativo:            ativo            !== undefined && ativo            !== '' ? ativo            === 'true' : undefined,
         ja_cliente:       ja_cliente       !== undefined && ja_cliente       !== '' ? ja_cliente       === 'true' : undefined,
         catalogo_enviado: catalogo_enviado !== undefined && catalogo_enviado !== '' ? catalogo_enviado === 'true' : undefined,
+        nao_tem_interesse: nao_tem_interesse !== undefined && nao_tem_interesse !== '' ? nao_tem_interesse === 'true' : undefined,
         search,
         page: page ? parseInt(page) : 1,
         limit: limit ? parseInt(limit) : 50,
@@ -160,13 +162,14 @@ export const ClientController = {
   // Exportação Excel / PDF (respeita os mesmos filtros da listagem)
   async exportClients(req, res, next) {
     try {
-      const { uf, status_id, ativo, ja_cliente, catalogo_enviado, search, format = 'xlsx' } = req.query
+      const { uf, status_id, ativo, ja_cliente, catalogo_enviado, nao_tem_interesse, search, format = 'xlsx' } = req.query
       const result = await ClientModel.list({
         uf,
         status_id:        status_id        ? parseInt(status_id) : undefined,
         ativo:            ativo            !== undefined && ativo            !== '' ? ativo            === 'true' : undefined,
         ja_cliente:       ja_cliente       !== undefined && ja_cliente       !== '' ? ja_cliente       === 'true' : undefined,
         catalogo_enviado: catalogo_enviado !== undefined && catalogo_enviado !== '' ? catalogo_enviado === 'true' : undefined,
+        nao_tem_interesse: nao_tem_interesse !== undefined && nao_tem_interesse !== '' ? nao_tem_interesse === 'true' : undefined,
         search,
         limit: 9999,
         page: 1,

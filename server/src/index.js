@@ -54,6 +54,26 @@ async function resetContatadoParaProspeccao({ apenasAnteriores = false } = {}) {
   }
 }
 
+async function resetNaoTemInteresse() {
+  try {
+    const { rowCount } = await db.query(`
+      UPDATE clients c
+      SET status_id         = (SELECT id FROM status WHERE nome = 'Prospecção' AND user_id = c.user_id LIMIT 1),
+          interesse_reset_at = NULL,
+          updated_at         = NOW()
+      WHERE status_id IN (SELECT id FROM status WHERE nome = 'Não Tem Interesse')
+        AND interesse_reset_at IS NOT NULL
+        AND interesse_reset_at <= NOW()
+        AND ativo = true
+    `)
+    if (rowCount > 0) {
+      console.log(`[Reset NTI] ${rowCount} cliente(s) voltaram para Prospecção após 3 meses.`)
+    }
+  } catch (err) {
+    console.error('[Reset NTI] Erro:', err.message)
+  }
+}
+
 function agendarResetMeiaNoite() {
   const agora = new Date()
 
@@ -66,6 +86,7 @@ function agendarResetMeiaNoite() {
 
   setTimeout(async () => {
     await resetContatadoParaProspeccao()
+    await resetNaoTemInteresse()
     agendarResetMeiaNoite() // reagenda para a próxima meia-noite de Brasília
   }, msAteReset)
 
@@ -125,5 +146,6 @@ httpServer.listen(PORT, async () => {
   await loadConfigFromDb()
   await seedAdmin()
   resetContatadoParaProspeccao({ apenasAnteriores: true })
+  resetNaoTemInteresse()
   agendarResetMeiaNoite()
 })

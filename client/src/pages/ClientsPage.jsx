@@ -102,6 +102,9 @@ const ClientRow = memo(function ClientRow({ c, alreadyContacted, isAttention, on
         {c.catalogo_enviado && (
           <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-xs font-bold bg-pink-600/20 text-pink-400 border border-pink-600/30">Catálogo</span>
         )}
+        {c.nao_tem_interesse && (
+          <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-xs font-bold bg-stone-600/30 text-stone-400 border border-stone-600/40">✗ Sem interesse</span>
+        )}
         {isCreatedToday(c.created_at) && (
           <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Novo</span>
         )}
@@ -332,7 +335,7 @@ export function ClientsPage() {
   const { overdueClients, showModal: showOverdueModal, dismiss: dismissOverdue } = useOverdueReminder(attentionDays)
 
   const [filters, setFilters] = useState(
-    () => savedFilters() || { search: '', status_id: '', uf: '', ativo: '', ja_cliente: '', catalogo_enviado: '', page: 1 }
+    () => savedFilters() || { search: '', status_id: '', uf: '', ativo: '', ja_cliente: '', catalogo_enviado: '', nao_tem_interesse: '', page: 1 }
   )
 
   // State view sempre usa lazy-por-UF. List view usa paginação real.
@@ -648,11 +651,11 @@ export function ClientsPage() {
     })
   }
 
-  const EMPTY_FILTERS = { search: '', status_id: '', uf: '', ativo: '', ja_cliente: '', catalogo_enviado: '', page: 1 }
+  const EMPTY_FILTERS = { search: '', status_id: '', uf: '', ativo: '', ja_cliente: '', catalogo_enviado: '', nao_tem_interesse: '', page: 1 }
 
   const setFilter = (k, v) => setFilters(f => ({ ...f, [k]: v, page: 1 }))
 
-  const hasActiveFilters = filters.search || filters.status_id || filters.uf || filters.ativo || filters.ja_cliente || filters.catalogo_enviado
+  const hasActiveFilters = filters.search || filters.status_id || filters.uf || filters.ativo || filters.ja_cliente || filters.catalogo_enviado || filters.nao_tem_interesse
 
   function clearFilters() {
     setFilters(EMPTY_FILTERS)
@@ -1100,6 +1103,15 @@ export function ClientsPage() {
           <option value="">Todos</option>
           <option value="true">Com catálogo enviado</option>
           <option value="false">Sem catálogo enviado</option>
+        </select>
+        <select
+          className="select w-auto"
+          value={filters.nao_tem_interesse}
+          onChange={e => setFilter('nao_tem_interesse', e.target.value)}
+        >
+          <option value="">Todos</option>
+          <option value="true">Já demonstrou desinteresse</option>
+          <option value="false">Nunca demonstrou desinteresse</option>
         </select>
 
         {/* Toggle view mode */}
