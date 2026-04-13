@@ -8,7 +8,7 @@ import { useModal } from '../hooks/useModal.js'
 const EMPTY_FORM = { nome: '', email: '', password: '', role: 'user' }
 
 export function AdminUsersPage() {
-  const { user: me }      = useAuth()
+  const { user: me, onlineUserIds } = useAuth()
   const navigate          = useNavigate()
   const { modal, showModal } = useModal()
 
@@ -201,6 +201,12 @@ export function AdminUsersPage() {
                     {user.role}
                   </span>
                   {!user.ativo && <span className="rounded bg-red-900/30 px-1.5 py-0.5 text-xs text-red-400">inativo</span>}
+                  {onlineUserIds.includes(String(user.id)) && (
+                    <span className="flex items-center gap-1 text-xs text-green-400">
+                      <span className="inline-block h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+                      online
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-zinc-500 truncate">{user.email}</p>
               </div>
