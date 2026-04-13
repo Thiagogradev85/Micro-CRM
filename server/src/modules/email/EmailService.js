@@ -146,5 +146,17 @@ class EmailService {
   }
 }
 
-// Singleton
-export const emailService = new EmailService()
+// ── Instâncias por usuário ────────────────────────────────────────────────────
+// Cada usuário tem sua própria configuração SMTP — sem interferência entre contas.
+const _instances = new Map()
+
+/**
+ * Retorna (ou cria) a instância do EmailService para um usuário específico.
+ * @param {number|string} userId
+ * @returns {EmailService}
+ */
+export function getEmailService(userId) {
+  const key = String(userId)
+  if (!_instances.has(key)) _instances.set(key, new EmailService())
+  return _instances.get(key)
+}

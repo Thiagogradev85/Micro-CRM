@@ -1,4 +1,4 @@
-import { emailService }       from '../modules/email/index.js'
+import { getEmailService }    from '../modules/email/index.js'
 import { ClientModel }         from '../models/ClientModel.js'
 import { CatalogModel }        from '../models/CatalogModel.js'
 import { ProductModel }        from '../models/ProductModel.js'
@@ -39,7 +39,7 @@ async function buildAttachments(req) {
 export const EmailController = {
   // GET /email/status
   async status(req, res) {
-    res.json(emailService.getStatus())
+    res.json(getEmailService(req.user.id).getStatus())
   },
 
   // POST /email/configure
@@ -50,7 +50,7 @@ export const EmailController = {
       if (!host || !port || !user || !pass) {
         throw new AppError('Preencha todos os campos: host, port, user, pass.', 400)
       }
-      await emailService.configure({ host, port, secure, user, pass })
+      await getEmailService(req.user.id).configure({ host, port, secure, user, pass })
       res.json({ message: `Conectado como ${user}` })
     } catch (err) {
       next(err instanceof AppError ? err : new AppError(err.message, 400))
@@ -59,7 +59,7 @@ export const EmailController = {
 
   // POST /email/disconnect
   async disconnect(req, res) {
-    emailService.disconnect()
+    getEmailService(req.user.id).disconnect()
     res.json({ message: 'Configuração de e-mail removida.' })
   },
 
@@ -92,7 +92,7 @@ export const EmailController = {
       if (!subject?.trim()) throw new AppError('Assunto não pode estar vazio.', 400)
       if (!message?.trim()) throw new AppError('Mensagem não pode estar vazia.', 400)
 
-      if (emailService.status !== 'connected') {
+      if (getEmailService(req.user.id).status !== 'connected') {
         throw new AppError('E-mail não está configurado. Configure a conexão SMTP primeiro.', 400)
       }
 
@@ -108,7 +108,7 @@ export const EmailController = {
         .replace(/\{\{uf\}\}/gi, 'SP')
 
       const attachments = await buildAttachments(req)
-      await emailService.sendMail({ to, subject: resolvedSubject, html: resolvedHtml, attachments })
+      await getEmailService(req.user.id).sendMail({ to, subject: resolvedSubject, html: resolvedHtml, attachments })
       const anexoMsg = attachments.length ? ` (com anexo: ${attachments[0].filename})` : ''
       res.json({ message: `E-mail de teste enviado para ${to}${anexoMsg}` })
     } catch (err) {
@@ -142,7 +142,7 @@ export const EmailController = {
 
       res.json({ message: `Iniciando envio para ${clients.length} clientes...`, total: clients.length })
 
-      emailService.sendBulk({
+      getEmailService(req.user.id).sendBulk({
         clients,
         subject,
         message,
@@ -162,7 +162,7 @@ export const EmailController = {
         console.log('[Email] Envio concluído:', results)
       }).catch(err => {
         console.error('[Email] Erro fatal no envio em massa:', err.message)
-        emailService.sendState = {
+        getEmailService(req.user.id).sendState = {
           status: 'done', total: clients.length, sent: 0,
           failed: clients.length, errors: [{ nome: 'Geral', email: '-', error: err.message }],
           finishedAt: new Date().toISOString(),
