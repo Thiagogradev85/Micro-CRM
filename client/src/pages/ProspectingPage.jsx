@@ -144,6 +144,7 @@ export function ProspectingPage() {
           resetDate={limitInfo?.resetDate}
           serpapiAvailable={limitInfo?.serpapiAvailable ?? false}
           bingAvailable={limitInfo?.bingAvailable ?? false}
+          context="maps"
         />
       )}
       {enrichIds && (

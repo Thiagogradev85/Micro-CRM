@@ -13,10 +13,14 @@ const BING_URL     = 'https://portal.azure.com'
  *   serpapiAvailable — boolean — SerpAPI configurada como fallback
  *   bingAvailable    — boolean — Bing Search configurado como fallback
  */
-export function SerperLimitModal({ onClose, resetDate, serpapiAvailable = false, bingAvailable = false }) {
+export function SerperLimitModal({ onClose, resetDate, serpapiAvailable = false, bingAvailable = false, context = 'web' }) {
   function handleOverlay(e) {
     if (e.target === e.currentTarget) onClose()
   }
+
+  // context='maps'  → Prospecção (Google Maps) — sem fallback disponível
+  // context='web'   → Enriquecimento (busca web) — SerpAPI/Bing funcionam como fallback
+  const isMaps = context === 'maps'
 
   let resetLabel = null
   if (resetDate) {
@@ -27,7 +31,8 @@ export function SerperLimitModal({ onClose, resetDate, serpapiAvailable = false,
     } catch { /* ignora */ }
   }
 
-  const anyFallback = serpapiAvailable || bingAvailable
+  // Para Maps não há fallback real — SerpAPI/Bing fazem busca web, não Maps
+  const anyFallback = !isMaps && (serpapiAvailable || bingAvailable)
 
   return (
     <div
@@ -52,6 +57,16 @@ export function SerperLimitModal({ onClose, resetDate, serpapiAvailable = false,
             </p>
           </div>
         </div>
+
+        {/* Aviso Maps: sem fallback para prospecção */}
+        {isMaps && (
+          <div className="rounded-xl p-3 text-sm flex items-start gap-2 bg-zinc-800 border border-zinc-700">
+            <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-zinc-400 text-xs">
+              A Prospecção usa o Google Maps (exclusivo do Serper). SerpAPI e Bing fazem busca web — funcionam no <strong className="text-zinc-300">Enriquecimento</strong>, mas não substituem o Maps.
+            </p>
+          </div>
+        )}
 
         {/* Status dos fallbacks — ordem: SerpAPI → Bing */}
         <div className="space-y-2">
@@ -163,7 +178,7 @@ export function SerperLimitModal({ onClose, resetDate, serpapiAvailable = false,
             </a>
           )}
           <button className="btn-ghost w-full text-sm" onClick={onClose}>
-            {anyFallback ? 'Continuar com fallback ativo' : 'Aguardar renovação'}
+            {anyFallback ? 'Continuar (fallback ativo para Enriquecimento)' : 'Aguardar renovação'}
           </button>
         </div>
 
