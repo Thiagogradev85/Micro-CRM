@@ -10,6 +10,8 @@ function friendlySmtpError(err) {
     return 'Falha de autenticação SMTP. Verifique o e-mail e a senha de aplicativo.'
   if (msg.includes('ECONNREFUSED'))
     return 'Conexão recusada. Verifique o host e a porta SMTP.'
+  if (msg.includes('ENETUNREACH') || msg.includes('EHOSTUNREACH'))
+    return 'Servidor SMTP inacessível. Verifique o host SMTP e a porta — ou tente a porta 587 em vez de 465.'
   if (msg.includes('ETIMEDOUT') || msg.includes('timeout'))
     return 'Tempo de conexão esgotado. Verifique o host SMTP e sua conexão com a internet.'
   if (msg.includes('self signed') || msg.includes('certificate'))
@@ -50,6 +52,8 @@ class EmailService {
       secure: Boolean(secure), // true = 465, false = 587/25
       auth: { user, pass },
       tls: { rejectUnauthorized: false }, // aceita certs self-signed corporativos
+      // Forçar IPv4 — Render (plano free) não tem rota IPv6 disponível
+      family: 4,
     })
 
     try {
