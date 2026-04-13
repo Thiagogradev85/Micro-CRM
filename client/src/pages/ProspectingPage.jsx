@@ -10,6 +10,7 @@ import { useModal } from '../hooks/useModal.js'
 export function ProspectingPage() {
   const { modal, showModal } = useModal()
   const [showLimitModal, setShowLimitModal] = useState(false)
+  const [limitInfo, setLimitInfo]           = useState(null)
 
   // Search form
   const [segment, setSegment] = useState('')
@@ -40,6 +41,7 @@ export function ProspectingPage() {
       setSelected(new Set(data.unique.map((_, i) => i)))
     } catch (err) {
       if (err.message === 'SERPER_LIMIT_REACHED') {
+        setLimitInfo(err.payload?.serperLimit ?? null)
         setShowLimitModal(true)
       } else {
         showModal({ type: 'error', title: 'Erro na busca', message: err.message })
@@ -136,7 +138,14 @@ export function ProspectingPage() {
   return (
     <div className="p-4 md:p-6 space-y-5">
       {modal}
-      {showLimitModal && <SerperLimitModal onClose={() => setShowLimitModal(false)} />}
+      {showLimitModal && (
+        <SerperLimitModal
+          onClose={() => setShowLimitModal(false)}
+          resetDate={limitInfo?.resetDate}
+          serpapiAvailable={limitInfo?.serpapiAvailable ?? false}
+          bingAvailable={limitInfo?.bingAvailable ?? false}
+        />
+      )}
       {enrichIds && (
         <EnrichModal
           clientIds={enrichIds}

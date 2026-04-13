@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { UserPlus, Trash2, ShieldCheck, User, ToggleLeft, ToggleRight, Loader2, KeyRound } from 'lucide-react'
+import { UserPlus, Trash2, ShieldCheck, User, ToggleLeft, ToggleRight, Loader2, KeyRound, Bell, BellOff } from 'lucide-react'
 import { api } from '../utils/api.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useModal } from '../hooks/useModal.js'
@@ -8,7 +8,7 @@ import { useModal } from '../hooks/useModal.js'
 const EMPTY_FORM = { nome: '', email: '', password: '', role: 'user' }
 
 export function AdminUsersPage() {
-  const { user: me }      = useAuth()
+  const { user: me, onlineUserIds, mutedUsers, toggleMute } = useAuth()
   const navigate          = useNavigate()
   const { modal, showModal } = useModal()
 
@@ -201,10 +201,33 @@ export function AdminUsersPage() {
                     {user.role}
                   </span>
                   {!user.ativo && <span className="rounded bg-red-900/30 px-1.5 py-0.5 text-xs text-red-400">inativo</span>}
+                  {onlineUserIds.includes(String(user.id)) && (
+                    <span className="flex items-center gap-1 text-xs text-green-400">
+                      <span className="inline-block h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+                      online
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-zinc-500 truncate">{user.email}</p>
               </div>
               <div className="flex items-center gap-1">
+                {/* Silenciar notificação de presença — só para usuários não-admin */}
+                {user.role !== 'admin' && (
+                  <button
+                    onClick={() => toggleMute(user.id)}
+                    title={mutedUsers.has(String(user.id)) ? 'Notificações silenciadas — clique para ativar' : 'Silenciar notificação de entrada'}
+                    className={`rounded p-1.5 transition hover:bg-zinc-800 ${
+                      mutedUsers.has(String(user.id))
+                        ? 'text-zinc-600 hover:text-zinc-400'
+                        : 'text-zinc-500 hover:text-yellow-400'
+                    }`}
+                  >
+                    {mutedUsers.has(String(user.id))
+                      ? <BellOff size={14} />
+                      : <Bell size={14} />
+                    }
+                  </button>
+                )}
                 <button
                   onClick={() => toggleAtivo(user)}
                   disabled={user.id === me?.id}

@@ -2,9 +2,12 @@ import express from 'express'
 import cors    from 'cors'
 import dotenv  from 'dotenv'
 import cookieParser from 'cookie-parser'
+import { createServer } from 'http'
+import { Server as SocketIO } from 'socket.io'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { existsSync }    from 'fs'
+import { setupPresence } from './socket/presenceService.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -69,7 +72,13 @@ function agendarResetMeiaNoite() {
   console.log(`[Reset diário] Agendado para ${meiaNoite.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`)
 }
 
-const app = express()
+const app        = express()
+const httpServer = createServer(app)
+const io         = new SocketIO(httpServer, {
+  cors: { origin: true, credentials: true },
+})
+setupPresence(io)
+
 const PORT = process.env.PORT || 8000
 
 app.use(cors({ origin: true, credentials: true }))
@@ -111,7 +120,7 @@ app.use((err, req, res, _next) => {
   res.status(500).json({ error: isDev ? (err.message || String(err)) : 'Erro interno do servidor. Verifique os logs.' })
 })
 
-app.listen(PORT, async () => {
+httpServer.listen(PORT, async () => {
   console.log(`🚀 Servidor rodando em http://localhost:${PORT}`)
   await loadConfigFromDb()
   await seedAdmin()

@@ -50,7 +50,8 @@ async function request(method, path, body) {
   if (!res.ok) {
     const payload = await res.json().catch(() => null)
     const err = new Error(friendlyError(res.status, payload))
-    err.status = res.status
+    err.status  = res.status
+    err.payload = payload   // dados extras (ex: serperLimit no 402)
     throw err
   }
   if (res.status === 204) return null
