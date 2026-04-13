@@ -129,7 +129,8 @@ export function EnrichModal({ clientIds, onSave, onClose }) {
     {serperLimit && (
       <SerperLimitModal
         resetDate={serperLimit.resetDate}
-        cseAvailable={serperLimit.cseAvailable}
+        serpapiAvailable={serperLimit.serpapiAvailable ?? false}
+        bingAvailable={serperLimit.bingAvailable ?? false}
         onClose={() => setSerperLimit(null)}
       />
     )}

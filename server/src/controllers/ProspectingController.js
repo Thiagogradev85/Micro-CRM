@@ -201,6 +201,16 @@ export const ProspectingController = {
         query:       queries.join(' | '),
       })
     } catch (err) {
+      if (err.message === 'SERPER_LIMIT_REACHED') {
+        return res.status(402).json({
+          error: 'SERPER_LIMIT_REACHED',
+          serperLimit: {
+            ...getSerperLimitStatus(),
+            serpapiAvailable: !!process.env.SERPAPI_KEY,
+            bingAvailable:    !!process.env.BING_SEARCH_KEY,
+          },
+        })
+      }
       next(err)
     }
   },
@@ -296,7 +306,8 @@ export const ProspectingController = {
       if (limitStatus) {
         response.serperLimit = {
           ...limitStatus,
-          cseAvailable: !!process.env.SERPAPI_KEY,
+          serpapiAvailable: !!process.env.SERPAPI_KEY,
+          bingAvailable:    !!process.env.BING_SEARCH_KEY,
         }
       }
 
