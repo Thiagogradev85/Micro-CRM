@@ -3,19 +3,22 @@
  *
  * Plano gratuito: 100 buscas/mês, sem cartão de crédito.
  * Cadastro: serpapi.com → Register → Dashboard → copiar API Key
- * Configuração: SERPAPI_KEY no .env
+ * Configuração: SERPAPI_KEY no .env ou em Configurações no app
  *
- * Retorna o mesmo shape que searchWeb() do serper.js:
- *   { organic: [{ link, title, snippet }], knowledgeGraph: null, localResults: [] }
+ * Dois usos:
+ *   searchWebSerpApi(query)  → busca web (usada no Enriquecimento)
+ *   searchMapsSerpApi(query) → busca Google Maps (fallback da Prospecção)
  *
- * Retorna null se não configurado ou se ocorrer erro.
+ * Ambas retornam null se não configurado ou se ocorrer erro.
  */
 
 const SERPAPI_URL = 'https://serpapi.com/search.json'
 
+// ── Busca web (Enriquecimento) ─────────────────────────────────────────────────
+
 export async function searchWebSerpApi(query) {
   const key = process.env.SERPAPI_KEY
-  if (!key) return null  // não configurado
+  if (!key) return null
 
   const params = new URLSearchParams({
     q:       query,
@@ -32,7 +35,7 @@ export async function searchWebSerpApi(query) {
       signal: AbortSignal.timeout(10000),
     })
   } catch {
-    return null  // timeout ou erro de rede
+    return null
   }
 
   if (!response.ok) {
@@ -41,22 +44,77 @@ export async function searchWebSerpApi(query) {
     return null
   }
 
-  const data  = await response.json()
-
-  // Verifica erro no corpo (SerpApi retorna 200 mesmo em erros de quota)
+  const data = await response.json()
   if (data.error) {
     console.warn(`[SerpApi] erro query="${query}":`, data.error)
     return null
   }
 
-  const items = data.organic_results || []
-
-  const organic = items.map(item => ({
+  const organic = (data.organic_results || []).map(item => ({
     link:    item.link    || '',
     title:   item.title   || '',
     snippet: item.snippet || '',
   }))
 
-  console.log(`[SerpApi] ${organic.length} resultados para "${query}"`)
+  console.log(`[SerpApi web] ${organic.length} resultados para "${query}"`)
   return { organic, knowledgeGraph: data.knowledge_graph || null, localResults: [] }
+}
+
+// ── Busca Google Maps (Prospecção) ─────────────────────────────────────────────
+
+/**
+ * Busca estabelecimentos no Google Maps via SerpApi.
+ * Retorna no mesmo shape que searchPlaces() do serper.js:
+ *   { places: [{ title, address, phone, website, rating, ratingCount, type }] }
+ *
+ * Retorna null se não configurado ou se ocorrer erro.
+ */
+export async function searchMapsSerpApi(query) {
+  const key = process.env.SERPAPI_KEY
+  if (!key) return null
+
+  const params = new URLSearchParams({
+    q:       query,
+    api_key: key,
+    engine:  'google_maps',
+    type:    'search',
+    gl:      'br',
+    hl:      'pt',
+  })
+
+  let response
+  try {
+    response = await fetch(`${SERPAPI_URL}?${params}`, {
+      signal: AbortSignal.timeout(15000),
+    })
+  } catch {
+    console.warn(`[SerpApi Maps] timeout/erro de rede para "${query}"`)
+    return null
+  }
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    console.warn(`[SerpApi Maps] ${response.status} query="${query}":`, body?.error || '')
+    return null
+  }
+
+  const data = await response.json()
+  if (data.error) {
+    console.warn(`[SerpApi Maps] erro query="${query}":`, data.error)
+    return null
+  }
+
+  // Mapeia para o shape esperado pelo ProspectingController
+  const places = (data.local_results || []).map(item => ({
+    title:       item.title       || null,
+    address:     item.address     || null,
+    phone:       item.phone       || null,
+    website:     item.website     || null,
+    rating:      item.rating      ?? null,
+    ratingCount: item.reviews     ?? null,
+    type:        item.type        || null,
+  }))
+
+  console.log(`[SerpApi Maps] ${places.length} resultados para "${query}"`)
+  return { places, creditsUsed: 0 }
 }

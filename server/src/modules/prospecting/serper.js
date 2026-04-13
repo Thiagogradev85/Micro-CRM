@@ -1,8 +1,8 @@
-import { AppError }           from '../../utils/AppError.js'
-import { searchWebSerpApi }   from './serpApiSearch.js'
-import { searchWebBrave }     from './braveSearch.js'
-import { searchWebBing }      from './bingSearch.js'
-import { searchWebCse }       from './googleCse.js'
+import { AppError }                          from '../../utils/AppError.js'
+import { searchWebSerpApi, searchMapsSerpApi } from './serpApiSearch.js'
+import { searchWebBrave }                      from './braveSearch.js'
+import { searchWebBing }                       from './bingSearch.js'
+import { searchWebCse }                        from './googleCse.js'
 
 const SERPER_MAPS_URL   = 'https://google.serper.dev/maps'
 const SERPER_SEARCH_URL = 'https://google.serper.dev/search'
@@ -31,7 +31,24 @@ export function getSerperLimitStatus() {
  * @param {string} query - Search query (e.g. "farmácias Curitiba PR")
  * @returns {{ places: object[], creditsUsed: number }}
  */
+/**
+ * Fallback Maps: tenta SerpApi Google Maps quando Serper está esgotado.
+ * Retorna { places, creditsUsed } ou lança SERPER_LIMIT_REACHED se não configurado.
+ */
+async function searchPlacesFallback(query) {
+  const result = await searchMapsSerpApi(query)
+  if (result) return result
+  // Nenhum fallback Maps disponível
+  throw new AppError('SERPER_LIMIT_REACHED', 402)
+}
+
 export async function searchPlaces(query) {
+  // Limite já conhecido — vai direto ao fallback Maps
+  if (serperLimitHitAt) {
+    console.warn(`[Serper Maps] limite ativo, usando fallback para "${query}"`)
+    return searchPlacesFallback(query)
+  }
+
   const apiKey = process.env.SERPER_API_KEY
   if (!apiKey) throw new AppError('SERPER_API_KEY não configurada no servidor.', 500)
 
@@ -49,19 +66,19 @@ export async function searchPlaces(query) {
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     const msg  = (body.message || '').toLowerCase()
-    console.error(`[Serper] ${response.status} para query="${query}" body=`, JSON.stringify(body))
+    console.error(`[Serper Maps] ${response.status} query="${query}" body=`, JSON.stringify(body))
 
     if (msg.includes('not enough credits') || msg.includes('credits') || msg.includes('quota') || msg.includes('limit') || msg.includes('exceeded')) {
       serperLimitHitAt = serperLimitHitAt || new Date().toISOString()
-      throw new AppError('SERPER_LIMIT_REACHED', 402)
+      console.warn(`[Serper Maps] limite atingido, tentando fallback para "${query}"`)
+      return searchPlacesFallback(query)
     }
     if (response.status === 403) throw new AppError('Chave Serper inválida. Verifique a SERPER_API_KEY no servidor.', 403)
     throw new AppError(`Erro na API Serper: ${response.status}`, 502)
   }
 
-  // Chamada bem-sucedida — limpa flag de limite
+  // Sucesso — limpa flag de limite
   serperLimitHitAt = null
-
   const data = await response.json()
   const creditsUsed = parseInt(response.headers.get('X-API-KEY-Usage-Count') || '0', 10)
   return { places: data.places || [], creditsUsed }

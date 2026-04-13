@@ -31,8 +31,8 @@ export function SerperLimitModal({ onClose, resetDate, serpapiAvailable = false,
     } catch { /* ignora */ }
   }
 
-  // Para Maps não há fallback real — SerpAPI/Bing fazem busca web, não Maps
-  const anyFallback = !isMaps && (serpapiAvailable || bingAvailable)
+  // SerpAPI tem engine Google Maps — funciona como fallback para Maps também
+  const anyFallback = serpapiAvailable || (!isMaps && bingAvailable)
 
   return (
     <div
@@ -58,12 +58,20 @@ export function SerperLimitModal({ onClose, resetDate, serpapiAvailable = false,
           </div>
         </div>
 
-        {/* Aviso Maps: sem fallback para prospecção */}
-        {isMaps && (
+        {/* Aviso Maps: SerpAPI tem engine Google Maps */}
+        {isMaps && serpapiAvailable && (
+          <div className="rounded-xl p-3 text-sm flex items-start gap-2 bg-emerald-900/20 border border-emerald-700/40">
+            <CheckCircle size={14} className="text-emerald-400 shrink-0 mt-0.5" />
+            <p className="text-emerald-300 text-xs">
+              SerpAPI está ativa como fallback para Maps. A busca continuará automaticamente com menor precisão.
+            </p>
+          </div>
+        )}
+        {isMaps && !serpapiAvailable && (
           <div className="rounded-xl p-3 text-sm flex items-start gap-2 bg-zinc-800 border border-zinc-700">
             <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
             <p className="text-zinc-400 text-xs">
-              A Prospecção usa o Google Maps (exclusivo do Serper). SerpAPI e Bing fazem busca web — funcionam no <strong className="text-zinc-300">Enriquecimento</strong>, mas não substituem o Maps.
+              Configure <strong className="text-zinc-300">SERPAPI_KEY</strong> em Configurações para continuar prospectando gratuitamente via Google Maps.
             </p>
           </div>
         )}
@@ -178,7 +186,7 @@ export function SerperLimitModal({ onClose, resetDate, serpapiAvailable = false,
             </a>
           )}
           <button className="btn-ghost w-full text-sm" onClick={onClose}>
-            {anyFallback ? 'Continuar (fallback ativo para Enriquecimento)' : 'Aguardar renovação'}
+            {anyFallback ? 'Continuar com fallback ativo' : 'Aguardar renovação'}
           </button>
         </div>
 
