@@ -59,7 +59,7 @@ export function Sidebar() {
           <p className="text-zinc-500 text-xs mt-0.5 truncate">{user?.company_nome || 'Controle de Vendas'}</p>
         </div>
 
-        <nav className="flex flex-col gap-1 px-2 flex-1">
+        <nav className="flex flex-col gap-1 px-2 flex-1 overflow-y-auto min-h-0">
           {links.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
