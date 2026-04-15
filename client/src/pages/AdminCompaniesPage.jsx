@@ -270,7 +270,7 @@ export function AdminCompaniesPage() {
                       )}
                       {(() => {
                         const currentIds = new Set((companyUsers[company.id] ?? []).map(u => u.id))
-                        const available = allUsers.filter(u => !currentIds.has(u.id))
+                        const available = allUsers.filter(u => !currentIds.has(u.id) && !u.company_id)
                         if (available.length === 0) return null
                         return (
                           <div className="flex items-center gap-2 mt-1">
@@ -279,7 +279,7 @@ export function AdminCompaniesPage() {
                               onChange={e => setAddUserSel(prev => ({ ...prev, [company.id]: e.target.value }))}
                               className="flex-1 rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-white focus:border-blue-500 focus:outline-none"
                             >
-                              <option value="">Adicionar usuario</option>
+                              <option value="">Adicionar usuário</option>
                               {available.map(u => (
                                 <option key={u.id} value={u.id}>{u.nome} ({u.email})</option>
                               ))}
