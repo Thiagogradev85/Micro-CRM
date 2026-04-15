@@ -46,11 +46,7 @@ export async function getSettings(req, res, next) {
 /** POST /settings — salva uma ou mais chaves */
 export async function saveSettings(req, res, next) {
   try {
-    const { password, values } = req.body
-    if (!password) throw new AppError('Senha obrigatória.', 400)
-    const ok = await verifySettingsPassword(password)
-    if (!ok) throw new AppError('Senha incorreta.', 401)
-
+    const { values } = req.body
     if (!values || typeof values !== 'object') throw new AppError('Payload inválido.', 400)
 
     for (const [key, value] of Object.entries(values)) {
@@ -67,10 +63,7 @@ export async function saveSettings(req, res, next) {
 /** POST /settings/test — testa uma chave específica (salva antes se value enviado) */
 export async function testSetting(req, res, next) {
   try {
-    const { password, key, value } = req.body
-    if (!password) throw new AppError('Senha obrigatória.', 400)
-    const ok = await verifySettingsPassword(password)
-    if (!ok) throw new AppError('Senha incorreta.', 401)
+    const { key, value } = req.body
 
     // Se veio um valor novo, salva em process.env antes de testar
     if (value && MANAGED_KEYS.includes(key)) {
@@ -170,13 +163,10 @@ export async function testSetting(req, res, next) {
   }
 }
 
-/** POST /settings/reveal — retorna o valor real de uma chave (exige senha) */
+/** POST /settings/reveal — retorna o valor real de uma chave */
 export async function revealSetting(req, res, next) {
   try {
-    const { password, key } = req.body
-    if (!password) throw new AppError('Senha obrigatória.', 400)
-    const ok = await verifySettingsPassword(password)
-    if (!ok) throw new AppError('Senha incorreta.', 401)
+    const { key } = req.body
     if (!MANAGED_KEYS.includes(key)) throw new AppError('Chave não permitida.', 403)
 
     // Busca do banco primeiro, depois process.env

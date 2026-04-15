@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Settings, Lock, Eye, EyeOff, CheckCircle, XCircle,
+  Settings, Eye, EyeOff, CheckCircle,
   Loader2, Save, FlaskConical, AlertTriangle, RefreshCw, Trash2,
 } from 'lucide-react'
 import { api } from '../utils/api.js'
@@ -95,30 +95,11 @@ const GROUPS = [
       },
     ],
   },
-  {
-    id: 'security',
-    label: 'Segurança',
-    description: 'Senha de acesso a esta página de configurações.',
-    keys: [
-      {
-        key: 'SETTINGS_PASSWORD',
-        label: 'Senha das Configurações',
-        description: 'Senha usada para acessar esta página. Padrão: admin1234',
-        placeholder: 'Nova senha...',
-        testable: false,
-      },
-    ],
-  },
 ]
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function SettingsPage() {
   const { modal, showModal } = useModal()
-
-  const [authed, setAuthed]     = useState(() => sessionStorage.getItem('settings_authed') === '1')
-  const [password, setPassword] = useState('')
-  const [authError, setAuthError] = useState('')
-  const [authLoading, setAuthLoading] = useState(false)
 
   const [config, setConfig]       = useState([])
   const [loading, setLoading]     = useState(false)
@@ -149,26 +130,7 @@ export function SettingsPage() {
     }
   }, [showModal])
 
-  useEffect(() => {
-    if (authed) fetchConfig()
-  }, [authed, fetchConfig])
-
-  // ── Login ──
-  async function handleLogin(e) {
-    e.preventDefault()
-    setAuthLoading(true)
-    setAuthError('')
-    try {
-      await api.settingsAuth(password)
-      sessionStorage.setItem('settings_authed', '1')
-      sessionStorage.setItem('settings_password', password)
-      setAuthed(true)
-    } catch (err) {
-      setAuthError(err.message || 'Senha incorreta.')
-    } finally {
-      setAuthLoading(false)
-    }
-  }
+  useEffect(() => { fetchConfig() }, [fetchConfig])
 
   // ── Salvar com confirmação se chave vier do Render ──
   function handleSave(key) {
@@ -196,8 +158,7 @@ export function SettingsPage() {
     if (!value) return
     setSaving(s => ({ ...s, [key]: true }))
     try {
-      const pwd = sessionStorage.getItem('settings_password') || password
-      await api.saveSettings(pwd, { [key]: value })
+      await api.saveSettings({ [key]: value })
       setSaved(s => ({ ...s, [key]: true }))
       setTimeout(() => setSaved(s => ({ ...s, [key]: false })), 3000)
       setValues(v => { const n = { ...v }; delete n[key]; return n })
@@ -221,9 +182,8 @@ export function SettingsPage() {
   async function handleTest(key) {
     setTesting(t => ({ ...t, [key]: true }))
     try {
-      const pwd = sessionStorage.getItem('settings_password') || password
       const typedValue = values[key]
-      const data = await api.testSetting(pwd, key, typedValue || undefined)
+      const data = await api.testSetting(key, typedValue || undefined)
 
       if (data.ok) {
         showModal({
@@ -264,15 +224,13 @@ export function SettingsPage() {
   async function handleTestCSE() {
     setTesting(t => ({ ...t, GOOGLE_CSE_KEY: true }))
     try {
-      const pwd = sessionStorage.getItem('settings_password') || password
-      // Salva valores digitados pendentes antes de testar
       const toSave = {}
       if (values['GOOGLE_CSE_KEY']) toSave['GOOGLE_CSE_KEY'] = values['GOOGLE_CSE_KEY']
       if (values['GOOGLE_CSE_CX'])  toSave['GOOGLE_CSE_CX']  = values['GOOGLE_CSE_CX']
       if (Object.keys(toSave).length > 0) {
-        await api.saveSettings(pwd, toSave)
+        await api.saveSettings(toSave)
       }
-      const data = await api.testSetting(pwd, 'GOOGLE_CSE_KEY')
+      const data = await api.testSetting('GOOGLE_CSE_KEY')
       if (data.ok) {
         showModal({ type: 'success', title: 'Google CSE válido!', message: data.message })
         if (Object.keys(toSave).length > 0) {
@@ -316,13 +274,13 @@ export function SettingsPage() {
     setRevealPrompt({ key, label })
   }
 
-  async function submitReveal(password) {
-    if (!password || !revealPrompt) return
+  async function submitReveal(pwd) {
+    if (!revealPrompt) return
     const { key } = revealPrompt
     setRevealing(r => ({ ...r, [key]: true }))
     setRevealPwdError('')
     try {
-      const data = await api.revealSetting(password, key)
+      const data = await api.revealSetting(key)
       if (data.ok) {
         setRevealedValues(v => ({ ...v, [key]: data.value }))
         setTimeout(() => setRevealedValues(v => {
@@ -352,8 +310,7 @@ export function SettingsPage() {
           onClick: async () => {
             setClearing(c => ({ ...c, [key]: true }))
             try {
-              const pwd = sessionStorage.getItem('settings_password') || password
-              await api.saveSettings(pwd, { [key]: '' })
+              await api.saveSettings({ [key]: '' })
               await fetchConfig()
             } catch (err) {
               showModal({
@@ -416,60 +373,6 @@ export function SettingsPage() {
     return base
   }
 
-  // ── Tela de login ──
-  if (!authed) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-        {modal}
-        <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl">
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-14 h-14 bg-sky-600/20 rounded-2xl flex items-center justify-center mb-4">
-              <Lock size={28} className="text-sky-400" />
-            </div>
-            <h1 className="text-white font-bold text-xl">Configurações</h1>
-            <p className="text-zinc-500 text-sm mt-1 text-center">
-              Digite a senha de administrador para continuar.
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Senha"
-              autoFocus
-              className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500
-                         rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-sky-500 transition-colors"
-            />
-
-            {authError && (
-              <div className="flex items-center gap-2 bg-red-950/50 border border-red-800/50 rounded-lg px-3 py-2.5">
-                <XCircle size={15} className="text-red-400 flex-shrink-0" />
-                <p className="text-red-300 text-sm">{authError}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={authLoading || !password}
-              className="bg-sky-600 hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed
-                         text-white font-semibold rounded-lg py-3 text-sm transition-colors
-                         flex items-center justify-center gap-2"
-            >
-              {authLoading ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
-              Entrar
-            </button>
-          </form>
-
-          <p className="text-zinc-600 text-xs text-center mt-6">
-            Senha padrão: <span className="text-zinc-500 font-mono">admin1234</span>
-          </p>
-        </div>
-      </div>
-    )
-  }
-
   // ── Tela principal ──
   return (
     <div className="min-h-screen bg-zinc-950 p-6">
@@ -495,13 +398,6 @@ export function SettingsPage() {
               title="Recarregar"
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            </button>
-            <button
-              onClick={() => { sessionStorage.removeItem('settings_authed'); setAuthed(false) }}
-              className="text-zinc-500 hover:text-zinc-300 text-xs px-3 py-1.5 rounded-lg
-                         hover:bg-zinc-800 transition-colors flex items-center gap-1.5"
-            >
-              <Lock size={12} /> Sair
             </button>
           </div>
         </div>
@@ -713,7 +609,7 @@ export function SettingsPage() {
       <PasswordPromptModal
         open={!!revealPrompt}
         title="Revelar chave"
-        description={revealPrompt ? `Digite a senha de admin para ver o valor de ${revealPrompt.label}.` : ''}
+        description={revealPrompt ? `Confirme para ver o valor de ${revealPrompt.label}.` : ''}
         confirmLabel="Revelar"
         confirmIcon={Eye}
         loading={revealPrompt ? !!revealing[revealPrompt.key] : false}
