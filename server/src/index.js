@@ -111,13 +111,7 @@ function agendarResetMeiaNoite() {
 // ── Backup diário às 2:00 BRT (05:00 UTC) ──────────────────────────────────
 async function backupClients() {
   try {
-    // Apaga backups com mais de 7 dias
-    const { rowCount: deleted } = await db.query(
-      `DELETE FROM clients_backup WHERE backup_date < CURRENT_DATE - INTERVAL '7 days'`
-    )
-    if (deleted > 0) console.log(`[Backup] ${deleted} registros antigos removidos.`)
-
-    // Insere snapshot completo de hoje
+    // Insere snapshot completo de hoje (nunca apaga registros antigos)
     const { rowCount } = await db.query(`
       INSERT INTO clients_backup (
         backup_date, client_id, nome, cidade, uf, whatsapp, telefone, email,

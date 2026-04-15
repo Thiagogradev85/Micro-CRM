@@ -51,6 +51,15 @@ export const CompanyModel = {
   },
 
   async delete(id) {
+    const { rows } = await db.query(
+      `SELECT COUNT(*)::int AS n FROM clients WHERE company_id = $1`,
+      [id]
+    )
+    if (rows[0].n > 0) {
+      const err = new Error(`Empresa possui ${rows[0].n} cliente(s) — remova ou mova os clientes antes de excluir.`)
+      err.status = 409
+      throw err
+    }
     await db.query(`DELETE FROM companies WHERE id = $1`, [id])
   },
 

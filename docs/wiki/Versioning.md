@@ -36,8 +36,11 @@ gh release create v1.4.0 --title "v1.4.0 — Título" --notes "## O que mudou
 | `v1.1.0` | Contato diário e reset automático de status |
 | `v1.2.0` | Refatoração de módulos, dimensões nos produtos |
 | `v1.3.0` | WhatsApp em massa (Baileys), e-mail em massa (Nodemailer) |
-| `v1.4.0` | AppError + useAppModalError, fix timezone relatório diário |
+| `v1.4.0` | AppError + useModal, fix timezone relatório diário |
 | `v1.5.0` | Deduplicação de clientes, prospecção, melhorias de UX |
-| `v1.5.1` | CNPJ e flag "Já é cliente", filtros de atenção por UF/dias, remoção de eventos do relatório diário, fix import Excel |
-| `v1.5.2` | Flag "Catálogo Enviado", enriquecimento de dados (lotes + por cliente), Excel melhorado, sort por último contato, WhatsApp para telefone fixo |
-| `v1.6.0` | Multi-abas (clientes abrem em nova janela), proteção contra conflito de edição, lazy load por UF, paginação real no backend, enriquecimento com 4ª busca (email), extração de Instagram via mentions |
+| `v1.5.1` | CNPJ e flag "Já é cliente", filtros de atenção por UF/dias |
+| `v1.5.2` | Flag "Catálogo Enviado", enriquecimento de dados, Excel melhorado |
+| `v1.6.0` | Multi-abas, proteção contra conflito de edição, lazy load por UF, paginação real |
+| `v2.0.0` | Multi-tenant SaaS: tabela companies, company_id em todas as tabelas, gerenciamento de empresas no admin |
+| `v2.1.0` | Backup diário acumulativo (clients_backup), ON DELETE RESTRICT nas FKs de company_id, proteção dupla contra exclusão de empresa com dados |
+| `v2.2.0` | Docs atualizadas: README, wiki com arquitetura multi-tenant, guardrails de dados e migrações 016–019 |

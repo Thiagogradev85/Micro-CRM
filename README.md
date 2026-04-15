@@ -1,6 +1,6 @@
-# ⚡ Leads CRM
+# ⚡ Micro CRM
 
-**v2.1.0** — CRM multi-tenant para gestão de leads, prospecção, catálogos e envio em massa via WhatsApp e E-mail.
+**v2.2.0** — CRM multi-tenant (SaaS) para gestão de leads, prospecção, catálogos e envio em massa via WhatsApp e E-mail.
 
 ## Funcionalidades
 
@@ -15,7 +15,9 @@
 - **Enriquecimento** — busca dados faltantes via IA (Claude)
 - **Relatório Diário** — eventos: novos clientes, contatados, catálogos solicitados, compras
 - **Configurações** — chaves de API via UI, proteção por senha, reveal com confirmação
-- **Multi-tenant** — login por usuário, dados isolados por user_id; admin gerencia contas
+- **Multi-tenant SaaS** — dados isolados por empresa (`company_id`); admin gerencia empresas e usuários
+- **Backup Diário** — snapshot completo dos clientes toda noite às 2h BRT (acumula, nunca apaga)
+- **Gerenciamento de Empresas** — admin pode criar/editar/desativar empresas; FK com RESTRICT impede exclusão acidental de dados
 
 ## Stack
 
@@ -30,12 +32,23 @@
 
 ## Regras de Negócio Principais
 
+### Multi-tenant por empresa
+- Todos os dados (clientes, vendedores, status, catálogos) pertencem a uma **empresa** (`company_id`)
+- `company_id` é embutido no JWT no login — todos os controllers filtram automaticamente por ele
+- Usuários só enxergam dados da sua própria empresa — sem contaminação cruzada
+- Admin pode gerenciar múltiplas empresas e atribuir usuários a cada uma
+
+### Proteção de dados (guardrails)
+- **ON DELETE RESTRICT** em todas as FKs de `company_id` — excluir uma empresa com clientes é bloqueado no banco
+- **Verificação na aplicação** — `CompanyModel.delete()` recusa exclusão se a empresa tiver clientes cadastrados
+- **Backup diário acumulativo** — snapshot completo em `clients_backup` toda noite às 2h BRT; registros antigos nunca são apagados
+
 ### UF e Vendedores
 - **UF obrigatória** para todo cliente — determina qual vendedor o atende
 - **Importação sem UF** é permitida: clientes vão para a **fila laranja** de tratamento obrigatório na tela de Clientes
 - **Detecção automática de UF** em endereços no Excel: suporta `Cidade/UF`, `Cidade - UF`, `(UF)`, nome completo do estado
-- **Exclusividade de UF**: cada UF só pode ter 1 vendedor responsável por usuário; UI bloqueia seleção de UFs já ocupadas
-- **Auto-assign diário**: toda meia-noite (ou no startup, se o servidor estava offline) o sistema associa vendedores a clientes que têm UF mas estão sem vendedor
+- **Exclusividade de UF**: cada UF só pode ter 1 vendedor responsável por empresa; UI bloqueia seleção de UFs já ocupadas
+- **Auto-assign diário**: toda meia-noite (ou no startup) o sistema associa vendedores a clientes que têm UF mas estão sem vendedor
 
 ### Resets diários (meia-noite de Brasília ou no startup)
 | Tarefa | Comportamento |
@@ -43,6 +56,7 @@
 | Contatado → Prospecção | Clientes contatados voltam para prospecção no dia seguinte |
 | Reset "Não Tem Interesse" | Após 3 meses, status é revertido para Prospecção automaticamente |
 | Auto-assign de vendedores | Clientes com UF mas sem vendedor recebem vendedor baseado na UF |
+| Backup diário | Snapshot completo de todos os clientes salvo em `clients_backup` |
 
 ## Arquitetura de Auth
 
@@ -52,8 +66,11 @@ Camadas completamente desacopladas — trocar JWT por outro mecanismo requer alt
 utils/auth.js                ← JWT: hashPassword, signToken, verifyToken
 middleware/authMiddleware.js ← requireAuth, requireAdmin
 routes/*.js                  ← router.use(requireAuth)
-controllers/*.js             ← usa req.user.id (não conhece JWT)
+controllers/*.js             ← usa req.user.id + req.user.company_id (não conhece JWT)
+models/*.js                  ← recebem companyId como parâmetro, filtram no SQL
 ```
+
+O token JWT carrega: `{ id, email, nome, role, company_id }`.
 
 ## Configuração
 
@@ -75,7 +92,7 @@ NODE_ENV=production
 - `SERPAPI_KEY` — fallback de busca
 - `BRAVE_SEARCH_API_KEY` — fallback Brave (pago $5/mês)
 - `BING_SEARCH_API_KEY` — fallback Bing
-- `GOOGLE_CSE_KEY` / `GOOGLE_CSE_CX` — fallback Google CSE (requer billing mesmo no plano gratuito)
+- `GOOGLE_CSE_KEY` / `GOOGLE_CSE_CX` — fallback Google CSE
 
 ## Banco de dados — Migrações
 
@@ -92,11 +109,15 @@ Execute em ordem no Neon SQL Editor:
 008_add_catalogo_enviado.sql
 009_cleanup_instagram_false_positives.sql
 010_settings_table.sql
-011_multi_tenant.sql          ← cria tabela users + user_id nas tabelas principais
+011_multi_tenant.sql              ← cria tabela users + user_id nas tabelas principais
 012_seed_missing_user_statuses.sql
 013_nao_tem_interesse.sql
 014_whatsapp_sessions.sql
-015_uf_nullable.sql           ← torna uf opcional (clientes importados sem estado)
+015_uf_nullable.sql               ← torna uf opcional (fila laranja)
+016_companies.sql                 ← tabela companies + company_id em todas as tabelas
+017_clients_backup.sql            ← tabela clients_backup para snapshots diários
+018_admin_companies_page.sql      ← ajustes para gerenciamento de empresas no admin
+019_fix_cascade.sql               ← ON DELETE CASCADE → ON DELETE RESTRICT (segurança)
 ```
 
 ## Desenvolvimento local
