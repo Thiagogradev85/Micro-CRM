@@ -59,14 +59,14 @@ export function Sidebar() {
           <p className="text-zinc-500 text-xs mt-0.5 truncate">{user?.company_nome || 'Controle de Vendas'}</p>
         </div>
 
-        <nav className="flex flex-col gap-1 px-2 flex-1 overflow-y-auto min-h-0">
+        <nav className="flex flex-col gap-0.5 px-2 flex-1">
           {links.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
                 ${isActive
                   ? 'bg-sky-600/20 text-sky-400 border border-sky-600/30'
                   : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
@@ -85,7 +85,7 @@ export function Sidebar() {
               to="/admin/users"
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
                 ${isActive
                   ? 'bg-sky-600/20 text-sky-400 border border-sky-600/30'
                   : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
@@ -101,7 +101,7 @@ export function Sidebar() {
               to="/admin/companies"
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
                 ${isActive
                   ? 'bg-sky-600/20 text-sky-400 border border-sky-600/30'
                   : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
@@ -116,7 +116,7 @@ export function Sidebar() {
             to="/settings"
             onClick={() => setOpen(false)}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
               ${isActive
                 ? 'bg-sky-600/20 text-sky-400 border border-sky-600/30'
                 : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
@@ -131,11 +131,11 @@ export function Sidebar() {
         {/* User info + logout */}
         {user && (
           <div className="mx-2 mb-2 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2">
-            <div className="flex items-center gap-2 mb-1.5">
+            <div className="flex items-center gap-2 mb-1">
               {user.role === 'admin' && <Shield size={12} className="text-amber-400 flex-shrink-0" />}
               <span className="truncate text-xs font-medium text-zinc-300">{user.nome}</span>
             </div>
-            <p className="truncate text-xs text-zinc-600 mb-2">{user.email}</p>
+            <p className="truncate text-xs text-zinc-600 mb-1.5">{user.email}</p>
             <button
               onClick={handleLogout}
               className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-zinc-500 transition hover:bg-zinc-800 hover:text-red-400"
@@ -143,14 +143,12 @@ export function Sidebar() {
               <LogOut size={12} />
               Sair
             </button>
+            <div className="mt-2 pt-1.5 border-t border-zinc-800/60 space-y-0.5">
+              <p className="text-xs text-zinc-700">v2.1.0 · Thiago Gramuglia</p>
+              <p className="text-xs text-zinc-700">CNPJ 64.828.611/0001-05</p>
+            </div>
           </div>
         )}
-
-        <div className="px-4 pb-2 space-y-0.5">
-          <div className="text-xs text-zinc-600">v2.1.0</div>
-          <div className="text-xs text-zinc-700 leading-tight truncate">Desenvolvido por Thiago Gramuglia</div>
-          <div className="text-xs text-zinc-700 truncate">CNPJ 64.828.611/0001-05</div>
-        </div>
       </aside>
     </>
   )
