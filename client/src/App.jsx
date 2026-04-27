@@ -3,7 +3,9 @@ import { AuthProvider } from './contexts/AuthContext.jsx'
 import { ProtectedRoute } from './components/ProtectedRoute.jsx'
 import { Sidebar } from './components/Sidebar.jsx'
 import { WhatsAppProgressBar } from './components/WhatsAppProgressBar.jsx'
-import { LoginPage }       from './pages/LoginPage.jsx'
+import { LoginPage }            from './pages/LoginPage.jsx'
+import { ForgotPasswordPage }   from './pages/ForgotPasswordPage.jsx'
+import { ResetPasswordPage }    from './pages/ResetPasswordPage.jsx'
 import { ClientsPage }      from './pages/ClientsPage.jsx'
 import { ClientDetailPage } from './pages/ClientDetailPage.jsx'
 import { CatalogPage }      from './pages/CatalogPage.jsx'
@@ -34,7 +36,9 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login"            element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password"  element={<ResetPasswordPage />} />
           <Route
             path="/*"
             element={

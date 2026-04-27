@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 
@@ -78,6 +78,15 @@ export function LoginPage() {
                 {error}
               </p>
             )}
+
+            <div className="flex justify-end">
+              <Link
+                to="/forgot-password"
+                className="text-xs text-zinc-500 hover:text-zinc-300"
+              >
+                Esqueceu sua senha?
+              </Link>
+            </div>
 
             <button
               type="submit"
